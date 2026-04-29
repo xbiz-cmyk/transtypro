@@ -77,8 +77,8 @@ If the project uses `pnpm` instead of `npm`, update this file and package script
 
 - Use strict TypeScript.
 - Avoid `any`.
-- Keep API types in `frontend/src/lib/types.ts`.
-- Keep Tauri command wrappers in `frontend/src/lib/api.ts`.
+- Keep API types in `src/lib/types.ts`.
+- Keep Tauri command wrappers in `src/lib/api.ts`.
 - Keep UI components small and reusable.
 - Do not duplicate business rules in every page.
 
@@ -119,8 +119,9 @@ Minimum checks:
 Use these boundaries:
 
 - Frontend agent:
-  - `frontend/src/**`
+  - `src/**` (standard Tauri v2 layout, see ADR-002)
   - UI docs only
+  - Do not create a `frontend/` folder unless the orchestrator explicitly approves it.
 
 - Backend agent:
   - `src-tauri/src/services/**`
