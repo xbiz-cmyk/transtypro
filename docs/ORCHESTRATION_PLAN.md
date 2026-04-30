@@ -72,12 +72,14 @@ Does not:
 ### 2. Frontend UI agent
 
 Owns:
+- `src/**` (standard Tauri v2 layout, see ADR-002)
 - React layout
 - pages
 - components
 - stores
 - UI state
 - empty/loading/error states
+- Do not create a `frontend/` folder unless the orchestrator explicitly approves it.
 
 Avoids:
 - Rust service implementation

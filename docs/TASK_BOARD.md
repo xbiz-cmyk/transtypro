@@ -2,7 +2,6 @@
 
 ## Backlog
 
-- [ ] Phase 0 bootstrap
 - [ ] Phase 1 UI shell
 - [ ] Phase 2 storage/settings/modes/vocabulary/history
 - [ ] Phase 3 audio recording
@@ -16,19 +15,19 @@
 
 ## In progress
 
-None yet.
+None.
 
 ## Review
 
-None yet.
+None.
 
 ## Done
 
-None yet.
+- [x] Phase 0 bootstrap — branch `phase/00-bootstrap`
 
 ## Blockers
 
-None yet.
+None.
 
 ## Decisions to record
 
