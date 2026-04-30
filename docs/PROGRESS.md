@@ -39,6 +39,10 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-Launch Wave 1 agents after orchestrator approval:
+Launch Wave 1 agents after PR #2 is merged:
 1. Frontend UI agent → `phase/01-ui-shell`
-2. Backend Rust agent → `phase/02-storage-settings`
+2. Backend contracts agent → `phase/02-backend-contracts`
+3. QA setup agent (optional) → `phase/qa-setup`
+
+Then launch Wave 2 after backend contracts are reviewed:
+4. Database/privacy agent → `phase/02-storage-settings`

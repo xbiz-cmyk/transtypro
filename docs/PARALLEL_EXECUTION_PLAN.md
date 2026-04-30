@@ -14,21 +14,21 @@ This document defines how to run Phase 1 and Phase 2 in parallel without conflic
 | Agent | Role | Phase | Branch |
 |---|---|---|---|
 | **Frontend UI agent** | Build all pages, components, stores, overlay | Phase 1 | `phase/01-ui-shell` |
-| **Backend Rust agent** | Tauri commands, service interfaces, typed errors | Phase 2 (backend contracts) | `phase/02-storage-settings` |
+| **Backend contracts agent** | Tauri commands, service interfaces, typed errors | Phase 2 (backend contracts) | `phase/02-backend-contracts` |
+| **QA setup agent** *(optional)* | Test harness, manual QA checklist | Cross-phase | `phase/qa-setup` |
 
 ### Wave 2 — Start after Wave 1 contracts stabilize
 
 | Agent | Role | Phase | Branch |
 |---|---|---|---|
-| **Database/privacy agent** | SQLite migrations, repositories, settings | Phase 2 (storage) | `phase/02-storage-settings` (same branch, after backend agent) |
-| **QA agent** | Test harness, manual QA checklist, type checks | Cross-phase | `phase/qa-setup` |
+| **Database/privacy agent** | SQLite migrations, repositories, settings | Phase 2 (storage) | `phase/02-storage-settings` |
 
 ### Wave 3 — Start after Phase 2 is merged
 
 | Agent | Role | Phase | Branch |
 |---|---|---|---|
-| **Audio/STT agent** | Microphone recording, whisper sidecar | Phase 3–4 | `phase/03-audio-stt` |
-| **Backend Rust agent** | Cleanup providers, pipeline | Phase 5–6 | `phase/04-cleanup-providers` |
+| **Audio/STT agent** | Microphone recording, whisper sidecar | Phase 3–4 | `phase/03-audio-recording` |
+| **Backend Rust agent** | Cleanup providers, pipeline | Phase 5–6 | `phase/05-cleanup-providers` |
 
 ### Not started yet
 
@@ -43,19 +43,23 @@ This document defines how to run Phase 1 and Phase 2 in parallel without conflic
 ## 2. Branch Names
 
 ```text
-main                        ← current baseline (Phase 0 merged)
+main
 phase/01-ui-shell           ← Frontend UI agent
-phase/02-storage-settings   ← Backend Rust agent → then Database/privacy agent
+phase/02-backend-contracts  ← Backend contracts agent
+phase/02-storage-settings   ← Database/privacy agent (Wave 2, after backend contracts)
 phase/qa-setup              ← QA agent (optional, lightweight)
 ```
 
 Future branches (do not create yet):
 ```text
-phase/03-audio-stt
-phase/04-cleanup-providers
-phase/05-dictation-pipeline
-phase/06-privacy-diagnostics
-phase/07-packaging
+phase/03-audio-recording
+phase/04-local-transcription
+phase/05-cleanup-providers
+phase/06-dictation-pipeline
+phase/07-shortcuts-context
+phase/08-privacy-diagnostics
+phase/09-voice-inbox
+phase/10-packaging
 ```
 
 ---
@@ -81,7 +85,7 @@ src/lib/api.ts               ← only add stubs for commands that exist
 docs/**                      ← except UI-specific docs
 ```
 
-### Backend Rust agent — `phase/02-storage-settings`
+### Backend contracts agent — `phase/02-backend-contracts`
 
 Owns (may create/edit):
 ```
@@ -99,14 +103,16 @@ src/**                       ← any frontend code
 src-tauri/src/db/**          ← reserved for Database agent
 ```
 
-### Database/privacy agent — `phase/02-storage-settings` (after backend)
+### Database/privacy agent — `phase/02-storage-settings`
+
+Starts after `phase/02-backend-contracts` is merged or reviewed.
 
 Owns (may create/edit):
 ```
 src-tauri/src/db/**          ← migrations, repositories, connection
 ```
 
-Must coordinate with Backend agent on:
+Must coordinate with Backend contracts agent on:
 ```
 src-tauri/src/services/**    ← service implementations that call repositories
 src-tauri/src/models/**      ← shared data structs
@@ -133,16 +139,17 @@ src-tauri/src/**             ← backend code
 ## 4. Merge Order
 
 ```
-1. phase/01-ui-shell          → main    (Frontend UI agent)
-2. phase/02-storage-settings  → main    (Backend + Database agents)
-3. phase/qa-setup             → main    (QA agent, if applicable)
+1. phase/01-ui-shell           → main    (Frontend UI agent)
+2. phase/02-backend-contracts  → main    (Backend contracts agent)
+3. phase/02-storage-settings   → main    (Database/privacy agent)
+4. phase/qa-setup              → main    (QA agent, if applicable)
 ```
 
 Rules:
-- Phase 1 and Phase 2 can be developed in parallel.
+- Phase 1 and Phase 2 backend contracts can be developed in parallel.
 - Phase 1 merges first because it has no backend dependencies.
-- Phase 2 merges second because it adds Rust dependencies and database schema.
-- If Phase 2 is ready before Phase 1, it may merge first only if there are no file conflicts.
+- Backend contracts merges second — it defines service interfaces the storage agent depends on.
+- Storage/database merges third — it must not start until backend contracts are merged or reviewed.
 - The orchestrator reviews every merge.
 
 ---
@@ -159,7 +166,7 @@ Rules:
      b. Ask the orchestrator to schedule the change.
      c. Never edit the file directly.
 
-3. **Each agent branches from `main` at the same commit (`ad0678d`).**
+3. **Each agent branches from the latest `origin/main` after the planning PR is merged.**
 
 4. **Each agent runs all checks before handoff:**
    - Frontend: `npm run build`, `npm run lint`
@@ -198,7 +205,7 @@ Do NOT:
 - Touch Rust code
 - Implement actual recording, transcription, or text insertion
 
-### Backend Rust agent — Phase 2 (contracts)
+### Backend contracts agent — Phase 2
 
 **Goal:** Define all Tauri command interfaces and service contracts.
 
@@ -270,7 +277,7 @@ git status --short
 git diff --stat
 ```
 
-### Backend Rust agent
+### Backend contracts agent
 ```bash
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings

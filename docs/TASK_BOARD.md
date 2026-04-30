@@ -13,8 +13,9 @@
 
 ## Planning
 
-- [ ] Phase 1 UI shell — parallel execution plan created, awaiting agent launch approval
-- [ ] Phase 2 storage/settings — parallel execution plan created, awaiting agent launch approval
+- [ ] Phase 1 UI shell — branch `phase/01-ui-shell`, awaiting PR #2 merge to launch
+- [ ] Phase 2 backend contracts — branch `phase/02-backend-contracts`, Wave 1, awaiting PR #2 merge to launch
+- [ ] Phase 2 storage/settings — branch `phase/02-storage-settings`, Wave 2, awaiting backend contracts review
 
 ## In progress
 
