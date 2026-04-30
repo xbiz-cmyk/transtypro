@@ -25,7 +25,7 @@ pwsh scripts/quality-check.ps1
 
 The script:
 - Automatically extends `$env:PATH` with `~/.cargo/bin` if present (handles the common Windows case where cargo is installed but not on the system PATH).
-- Runs `npm run build`, `cargo fmt --check`, `cargo clippy`, `cargo test`, and `git status` in order.
+- Runs `npm run build`, `npm run lint`, `cargo fmt --check`, `cargo clippy`, `cargo test`, and `git status` in order.
 - Prints a clearly labeled PASS or FAIL line after each check.
 - Prints a final summary listing all failed checks.
 - Exits with code 0 if all checks pass, code 1 if any check fails.
@@ -43,6 +43,9 @@ The script:
 
 ==> npm run build
     PASS: npm run build
+
+==> npm run lint
+    PASS: npm run lint
 
 ==> cargo fmt --check
     PASS: cargo fmt --check
@@ -84,15 +87,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
   All checks passed.
 ```
 
-All checks passed: **yes**
+All checks passed (6 of 6): **yes**
 
 ---
 
 ## Known limitations
 
-- The script uses no unit test framework for the frontend (Vitest is not configured yet). The `npm run build` check only verifies TypeScript compilation and Vite bundling.
+- The script uses no unit test framework for the frontend (Vitest is not configured yet). `npm run build` verifies TypeScript compilation and Vite bundling; `npm run lint` runs `tsc --noEmit` as the type-check gate.
 - `cargo test` shows `0 tests` because no Rust unit tests exist yet. The test harness is ready; tests will be added in Phase 2 and beyond.
-- `npm run lint` is not run because no lint script is configured in `package.json` at this time (no ESLint setup).
 - The script targets Windows (`pwsh`). A `.sh` equivalent exists as `scripts/quality-check.example.sh` for reference on macOS/Linux, but the canonical gate for this project is the `.ps1` file.
 - First run requires `npm install` to populate `node_modules/`. The script does not run `npm install` automatically to avoid unexpected side effects.
 
@@ -122,6 +124,6 @@ All four checks (npm build, cargo fmt, cargo clippy, cargo test) must show PASS.
 
 As Phase 2 storage work proceeds, add Rust unit tests under `src-tauri/src/`. They will be picked up automatically by `cargo test`.
 
-### Adding lint
+### Adding ESLint
 
-Once ESLint is configured (a future task), add `npm run lint` as a step in the script by inserting a `Run-Check` call before or after the build step.
+`npm run lint` currently runs `tsc --noEmit`. If ESLint is added later, update the `lint` script in `package.json` to include it (e.g., `eslint src && tsc --noEmit`). No script changes are needed — the `Run-Check` call for `npm run lint` is already in place.

@@ -95,7 +95,7 @@ These checks apply to the `phase/01-ui-shell` branch before merging.
 ### Build and lint
 
 - [ ] `npm run build` passes with zero errors.
-- [ ] `npm run lint` passes (if lint script is configured).
+- [ ] `npm run lint` passes (`tsc --noEmit` — configured in package.json).
 - [ ] TypeScript type check passes (no `any` without justification).
 
 ### Tauri command discipline

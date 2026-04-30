@@ -42,19 +42,23 @@ Write-Host "======================================" -ForegroundColor White
 $result = Run-Check -Label "npm run build" -Block { npm run build }
 if (-not $result) { $failed += "npm run build" }
 
-# 2. Rust format check
+# 2. Frontend lint (TypeScript type check without emit)
+$result = Run-Check -Label "npm run lint" -Block { npm run lint }
+if (-not $result) { $failed += "npm run lint" }
+
+# 3. Rust format check
 $result = Run-Check -Label "cargo fmt --check" -Block {
     cargo fmt --check --manifest-path src-tauri/Cargo.toml
 }
 if (-not $result) { $failed += "cargo fmt --check" }
 
-# 3. Cargo clippy
+# 4. Cargo clippy
 $result = Run-Check -Label "cargo clippy" -Block {
     cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 }
 if (-not $result) { $failed += "cargo clippy" }
 
-# 4. Cargo test
+# 5. Cargo test
 $result = Run-Check -Label "cargo test" -Block {
     cargo test --manifest-path src-tauri/Cargo.toml
 }
