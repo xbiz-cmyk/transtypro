@@ -21,12 +21,26 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
+
+            // Phase 2: SQLite database
             let db_path = data_dir.join("transtypro.sqlite");
             let conn = rusqlite::Connection::open(&db_path)?;
             db::run_migrations(&conn)?;
             app.manage(db::AppState {
                 db: Arc::new(Mutex::new(conn)),
             });
+
+            // Phase 3: Audio recording state (separate from DB state)
+            let audio_dir = data_dir.join("audio");
+            std::fs::create_dir_all(&audio_dir)?;
+            app.manage(services::AudioState {
+                audio_dir,
+                recording: Arc::new(Mutex::new(None)),
+                samples: Arc::new(Mutex::new(Vec::new())),
+                sample_rate: Arc::new(Mutex::new(44100)),
+                channels: Arc::new(Mutex::new(1)),
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -62,6 +76,12 @@ pub fn run() {
             commands::providers::test_provider_placeholder,
             // Phase 2 — diagnostics (placeholder)
             commands::diagnostics::run_diagnostics_placeholder,
+            // Phase 3 — audio recording
+            commands::audio::list_microphones,
+            commands::audio::start_recording,
+            commands::audio::stop_recording,
+            commands::audio::cancel_recording,
+            commands::audio::get_recording_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

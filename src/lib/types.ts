@@ -180,3 +180,33 @@ export interface PrivacyDecision {
   allowed: boolean;
   reason: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3: Audio recording — mirrors Rust models in src-tauri/src/models/mod.rs
+// ---------------------------------------------------------------------------
+
+/** Information about an available microphone input device. */
+export interface MicrophoneInfo {
+  name: string;
+  is_default: boolean;
+}
+
+/** Live recording state returned by get_recording_status. */
+export interface RecordingStatus {
+  is_recording: boolean;
+  selected_microphone: string | null;
+  /** RMS level of recent samples, range 0.0–1.0. */
+  level_rms: number;
+  /** Total samples collected in the buffer (all channels combined). */
+  sample_count: number;
+}
+
+/** Result returned after a successful stop_recording call. */
+export interface RecordingResult {
+  /** Absolute path to the written WAV file. */
+  file_path: string;
+  duration_ms: number;
+  sample_rate: number;
+  /** Always 1 — WAV output is mono regardless of capture channels. */
+  channels: number;
+}
