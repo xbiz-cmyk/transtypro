@@ -39,7 +39,7 @@ export async function listMicrophones(): Promise<MicrophoneInfo[]> {
 /** Begin recording from the named device (or the system default if omitted). */
 export async function startRecording(deviceName?: string): Promise<RecordingStatus> {
   return invoke<RecordingStatus>("start_recording", {
-    device_name: deviceName ?? null,
+    deviceName: deviceName ?? null,
   });
 }
 

@@ -70,6 +70,8 @@ pub struct AudioState {
 | `cancel_recording` | `() → Result<RecordingStatus, AppError>` | Discard buffer, no file |
 | `get_recording_status` | `() → Result<RecordingStatus, AppError>` | Live RMS level |
 
+> **Frontend argument naming:** Tauri maps Rust `snake_case` command parameter names to `camelCase` in JavaScript by default. The `start_recording` command's `device_name: Option<String>` argument must therefore be passed as `deviceName` from the frontend (`invoke("start_recording", { deviceName: ... })`). No `#[tauri::command(rename_all = "snake_case")]` attribute is used.
+
 ---
 
 ## Models Added
