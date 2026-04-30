@@ -4,6 +4,14 @@
 /// They must not contain business logic.
 use crate::errors::AppError;
 
+pub mod diagnostics;
+pub mod history;
+pub mod modes;
+pub mod privacy;
+pub mod providers;
+pub mod settings;
+pub mod vocabulary;
+
 /// Verify frontend-backend IPC communication.
 #[tauri::command]
 pub fn ping() -> Result<String, AppError> {

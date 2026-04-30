@@ -1,11 +1,26 @@
 /// transtypro — Service interfaces.
 ///
 /// Services contain business logic. Tauri commands delegate to services.
-/// Each service will be implemented in its own submodule in later phases.
-///
-/// Phase 0: Only interface stubs that return `FeatureNotImplemented` errors.
-/// Phase 2+: Real implementations.
+/// Phase 0 stubs return `FeatureNotImplemented`.
+/// Phase 2 adds service structs for all core domains.
+/// Phase 2 storage and beyond wire real implementations.
 use crate::errors::AppError;
+
+pub mod diagnostics;
+pub mod history;
+pub mod modes;
+pub mod privacy;
+pub mod providers;
+pub mod settings;
+pub mod vocabulary;
+
+pub use diagnostics::DiagnosticsService;
+pub use history::HistoryService;
+pub use modes::ModesService;
+pub use privacy::PrivacyService;
+pub use providers::ProvidersService;
+pub use settings::SettingsService;
+pub use vocabulary::VocabularyService;
 
 /// Placeholder for the transcription service (Phase 3-4).
 pub fn transcribe_audio(_audio_path: &str) -> Result<String, AppError> {

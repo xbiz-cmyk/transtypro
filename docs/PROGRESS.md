@@ -5,9 +5,21 @@ Use this file to keep long-running agent work stable across sessions.
 ## Current phase
 
 Phase 0 — Bootstrap — MERGED (PR #1, commit `ad0678d`).
-Phase 1 and Phase 2 — PLANNING. No implementation started.
+Phase 2 Backend Contracts — IMPLEMENTED on `phase/02-backend-contracts`, PR pending review.
+Phase 1 UI Shell — In parallel on `phase/01-ui-shell`.
 
 ## Last completed work
+
+Phase 2 Backend Contracts: All Tauri command interfaces, service contracts, data models,
+and AppError variants defined on `phase/02-backend-contracts`.
+- 9 new models (AppSettings, DictationMode, VocabularyEntry, HistoryEntry, AiProvider,
+  DiagnosticCheck, DiagnosticReport, PrivacyOperation, PrivacyDecision)
+- 6 new AppError variants
+- 7 service structs (SettingsService, ModesService, VocabularyService, HistoryService,
+  PrivacyService, ProvidersService, DiagnosticsService)
+- 20 new Tauri commands registered
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test, npm run build
+- Handoff: `handoff/phase-02-backend-contracts.md`
 
 Phase 0: Project skeleton created and merged into `main`.
 - Tauri v2 + React 19 + TypeScript + Vite 7
@@ -22,9 +34,9 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Multi-agent parallel execution plan created: `docs/PARALLEL_EXECUTION_PLAN.md`
-- Launch handoff created: `handoff/multi-agent-launch-plan.md`
-- Awaiting approval to create branches and launch Wave 1 agents
+- Phase 2 Backend Contracts PR open against `main` — awaiting orchestrator review and merge
+- Wave 2 (Database/privacy agent) should start after Phase 2 PR merges
+- Phase 1 UI Shell in progress on `phase/01-ui-shell`
 
 ## Current known limitations
 
@@ -39,10 +51,8 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-Launch Wave 1 agents after PR #2 is merged:
-1. Frontend UI agent → `phase/01-ui-shell`
-2. Backend contracts agent → `phase/02-backend-contracts`
-3. QA setup agent (optional) → `phase/qa-setup`
-
-Then launch Wave 2 after backend contracts are reviewed:
-4. Database/privacy agent → `phase/02-storage-settings`
+1. Orchestrator: review and merge `phase/02-backend-contracts` PR
+2. Launch Database/privacy agent → `phase/02-storage-settings` (Wave 2)
+   - Wire SQLite migrations, repositories, real service implementations
+3. Continue Phase 1 UI Shell → `phase/01-ui-shell`
+4. After both Phase 1 and Phase 2 merge: start Wave 3 (Audio/STT, Providers)
