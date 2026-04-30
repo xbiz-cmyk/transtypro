@@ -4,11 +4,26 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
+Phase 2 Storage (Wave 2) — IMPLEMENTED on `phase/02-storage-settings`, PR open for review.
 Phase 0 — Bootstrap — MERGED (PR #1, commit `ad0678d`).
-Phase 2 Backend Contracts — IMPLEMENTED on `phase/02-backend-contracts`, PR pending review.
-Phase 1 UI Shell — In parallel on `phase/01-ui-shell`.
+Phase 2 Backend Contracts — MERGED into main.
+Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 2 Storage (Wave 2): SQLite persistence layer wired to all storage-backed services.
+- New: `rusqlite` (bundled), `uuid`, `chrono` dependencies
+- New: `db/connection.rs` — `AppState { db: Arc<Mutex<Connection>> }`
+- New: `db/migrations.rs` — idempotent migration runner; migration 001 creates 4 tables + seeds 10 built-in modes and 1 settings row
+- New: `db/repositories/` — `SettingsRepository`, `ModesRepository`, `VocabularyRepository`, `HistoryRepository`
+- Updated: 5 services (`settings`, `modes`, `vocabulary`, `history`, `privacy`) — real SQLite calls
+- Updated: 5 command modules — added `tauri::State<'_, AppState>` wiring
+- Updated: `lib.rs` — `.setup()` hook opens DB, runs migrations, manages `AppState`
+- Added: `HistoryService::create_history_entry` (service method only; no Tauri command yet)
+- Privacy: `enforce_privacy_preview` fails closed on unknown operations when local-only mode is on
+- 36 unit tests; all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test, npm run build, quality-check.ps1
+- Handoff: `handoff/phase-02-storage-settings.md`
 
 Phase 2 Backend Contracts: All Tauri command interfaces, service contracts, data models,
 and AppError variants defined on `phase/02-backend-contracts`.
@@ -35,24 +50,24 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 2 Backend Contracts PR open against `main` — awaiting orchestrator review and merge
-- Wave 2 (Database/privacy agent) should start after Phase 2 PR merges
-- Phase 1 UI Shell in progress on `phase/01-ui-shell`
+- Phase 2 Storage PR open against `main` — awaiting orchestrator review and merge
+- Wave 3 (Audio/STT, Providers) should start after Phase 2 storage is merged
 
 ## Current known limitations
 
-- No SQLite persistence (Phase 2).
 - No audio recording (Phase 3).
 - No transcription (Phase 4).
-- No cleanup providers (Phase 5).
-- No dictation pipeline (Phase 6).
+- No cleanup providers (Phase 5) — `ProvidersService` still returns `FeatureNotImplemented`.
+- No dictation pipeline (Phase 6) — `HistoryService::create_history_entry` is ready but not called yet.
 - No global shortcut (Phase 7).
-- No real settings storage — status summary returns static defaults.
+- `DiagnosticsService` still returns a static report (Phase 8).
+- History list is empty until the dictation pipeline creates entries.
+- Retention policy is stored but not enforced (Phase 8).
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/02-backend-contracts` PR
-2. Launch Database/privacy agent → `phase/02-storage-settings` (Wave 2)
-   - Wire SQLite migrations, repositories, real service implementations
-3. Continue Phase 1 UI Shell → `phase/01-ui-shell`
-4. After both Phase 1 and Phase 2 merge: start Wave 3 (Audio/STT, Providers)
+1. Orchestrator: review and merge `phase/02-storage-settings` PR
+2. Launch Wave 3:
+   - Audio/STT agent → `phase/03-audio-recording`
+   - (Optionally, in parallel) Providers backend → `phase/05-cleanup-providers`
+3. After Phase 3 and Phase 5: start Phase 6 dictation pipeline

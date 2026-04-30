@@ -10,10 +10,25 @@ pub mod models;
 pub mod services;
 pub mod utils;
 
+use std::sync::{Arc, Mutex};
+
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data_dir)?;
+            let db_path = data_dir.join("transtypro.sqlite");
+            let conn = rusqlite::Connection::open(&db_path)?;
+            db::run_migrations(&conn)?;
+            app.manage(db::AppState {
+                db: Arc::new(Mutex::new(conn)),
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // Phase 0 — core
             commands::ping,
@@ -41,11 +56,11 @@ pub fn run() {
             // Phase 2 — privacy
             commands::privacy::get_privacy_status,
             commands::privacy::enforce_privacy_preview,
-            // Phase 2 — providers
+            // Phase 2 — providers (placeholder)
             commands::providers::list_providers,
             commands::providers::get_provider,
             commands::providers::test_provider_placeholder,
-            // Phase 2 — diagnostics
+            // Phase 2 — diagnostics (placeholder)
             commands::diagnostics::run_diagnostics_placeholder,
         ])
         .run(tauri::generate_context!())

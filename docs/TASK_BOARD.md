@@ -13,23 +13,23 @@
 
 ## Planning
 
-- [ ] Phase 2 storage/settings — branch `phase/02-storage-settings`, Wave 2, start after Phase 2 contracts merge
+None.
 
 ## In progress
 
-- [ ] Phase 1 UI shell — branch `phase/01-ui-shell`
-
-## Review
-
-- [ ] Phase 2 backend contracts — branch `phase/02-backend-contracts`, PR open, awaiting orchestrator review
-
-## Review
-
 None.
+
+## Review
+
+- [ ] Phase 2 storage/settings — branch `phase/02-storage-settings`, PR open, awaiting orchestrator review
 
 ## Done
 
 - [x] Phase 0 bootstrap — merged via PR #1 (`ad0678d`)
+- [x] Phase 1 UI shell — merged into main (`84d3a55`)
+- [x] Phase 2 backend contracts — merged into main
+- [x] Phase 2 storage (Wave 2) — implemented on `phase/02-storage-settings`
+- [x] QA setup — merged into main
 
 ## Blockers
 
