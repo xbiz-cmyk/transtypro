@@ -12,12 +12,13 @@ Phase 1 UI Shell — In parallel on `phase/01-ui-shell`.
 
 Phase 2 Backend Contracts: All Tauri command interfaces, service contracts, data models,
 and AppError variants defined on `phase/02-backend-contracts`.
-- 9 new models (AppSettings, DictationMode, VocabularyEntry, HistoryEntry, AiProvider,
-  DiagnosticCheck, DiagnosticReport, PrivacyOperation, PrivacyDecision)
+- 10 new models (AppSettings, DictationMode, VocabularyEntry, HistoryEntry, AiProvider,
+  DiagnosticCheck, DiagnosticReport, PrivacySummary, PrivacyOperation, PrivacyDecision)
 - 6 new AppError variants
 - 7 service structs (SettingsService, ModesService, VocabularyService, HistoryService,
   PrivacyService, ProvidersService, DiagnosticsService)
-- 20 new Tauri commands registered
+- 21 new Phase 2 commands registered (24 total including Phase 0)
+- All commands return Result<T, AppError> — AppError implements Serialize for Tauri IPC
 - All checks pass: cargo fmt, cargo clippy -D warnings, cargo test, npm run build
 - Handoff: `handoff/phase-02-backend-contracts.md`
 
@@ -46,7 +47,6 @@ Phase 0: Project skeleton created and merged into `main`.
 - No cleanup providers (Phase 5).
 - No dictation pipeline (Phase 6).
 - No global shortcut (Phase 7).
-- Sidebar items beyond Home are marked "Coming soon" and disabled.
 - No real settings storage — status summary returns static defaults.
 
 ## Next recommended task

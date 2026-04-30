@@ -167,6 +167,13 @@ All models derive `Serialize, Deserialize, Debug, Clone`.
 
 ---
 
+## Error handling convention
+
+All new Phase 2 Tauri commands return `Result<T, AppError>` directly.
+`AppError` implements `Serialize` (serializes as its `Display` string) so Tauri's IPC layer
+can transmit it to the frontend without a `.map_err(|e| e.to_string())` conversion.
+The frontend receives errors as plain strings over IPC — no TypeScript changes needed.
+
 ## Commands Run and Results
 
 | Command | Result |
@@ -177,6 +184,7 @@ All models derive `Serialize, Deserialize, Debug, Clone`.
 | `cargo test` | ✅ pass — 0 tests (no unit tests added this phase) |
 | `npm install` | ✅ pass — 90 packages |
 | `npm run build` | ✅ pass — frontend compiles with no errors |
+| `pwsh scripts/quality-check.ps1` | ✅ pass — all checks |
 
 ---
 
