@@ -10,7 +10,10 @@ Phase 1 builds the complete UI shell for transtypro. All 11 pages are navigable
 via the sidebar. No backend commands are called beyond those already registered
 in `api.ts` (ping, get_app_version, get_status_summary). All other data is mock.
 Reusable components, Zustand stores, and TypeScript type mirrors are in place for
-future backend wiring.
+future backend wiring. Types are aligned with the Rust models defined in PR #5
+(phase/02-backend-contracts).
+
+No changes to `src-tauri/**`. No changes to `docs/PROGRESS.md` or `docs/TASK_BOARD.md`.
 
 ---
 
@@ -23,6 +26,9 @@ future backend wiring.
 | `Card.tsx` | Standard content container with border, padding, dark bg; exports `CardHeader` |
 | `Button.tsx` | Variants: primary, secondary, ghost, danger; sizes: sm, md, lg; disabled state |
 | `Input.tsx` | Text input with label, helper text, error state |
+| `Textarea.tsx` | Multiline text input with label, helper text, error state, disabled state |
+| `Select.tsx` | Styled select element with label, helper text, error state, disabled state |
+| `Toggle.tsx` | Toggle switch (role="switch") with label, description, disabled state |
 | `Badge.tsx` | Variants: default, success, warning, danger, muted |
 | `Modal.tsx` | Backdrop + panel shell; header, body, footer; not wired to state |
 | `EmptyState.tsx` | Icon, heading, subtext, optional action button |
@@ -48,15 +54,15 @@ future backend wiring.
 
 | File | Description |
 |---|---|
-| `Dictation.tsx` | Record button (inactive), mode selector, waveform placeholder, result textarea, Copy/Insert/Save buttons (all disabled) |
-| `History.tsx` | Filter bar (search, date range, mode), 3 mock entries with badges, empty state |
+| `Dictation.tsx` | Record button (inactive), mode Select, waveform placeholder, result Textarea (readOnly), Copy/Insert/Save buttons (all disabled) |
+| `History.tsx` | Filter bar (Input search, Select date range, Select mode), 3 mock entries with badges, empty state |
 | `Modes.tsx` | 5 mock built-in modes with badges, Add/Edit/Delete placeholders |
 | `Vocabulary.tsx` | 4 mock entries in term/replacement/category table, Add/Delete placeholders |
 | `Models.tsx` | 1 mock installed model, add-model form with file path input and Browse button |
-| `Providers.tsx` | 1 mock provider, add-provider form with type selector/URL/model/masked API key field |
-| `Settings.tsx` | Grouped cards: General, Dictation, Privacy, Storage with toggles and selectors |
-| `Privacy.tsx` | Status card, privacy badges (Local Only, No Cloud Calls, Audio Deleted After Use), data flow table |
-| `Diagnostics.tsx` | 7-item status check list, Run diagnostics + Export buttons (disabled), results empty state |
+| `Providers.tsx` | 1 mock provider, add-provider form with Select type/URL/model/masked API key |
+| `Settings.tsx` | Grouped cards: General (Select), Dictation (Select), Privacy (Toggle, Input), Storage |
+| `Privacy.tsx` | Status card using PrivacySummary fields, privacy badges, data flow table, retention summary |
+| `Diagnostics.tsx` | 7-item DiagnosticCheck list, Run diagnostics + Export buttons (disabled), results empty state |
 | `About.tsx` | App name, version, tagline, description, local paths placeholder, credits |
 
 ---
@@ -68,9 +74,28 @@ future backend wiring.
 | `src/App.tsx` | Added routes for all 11 pages; renders FloatingOverlay |
 | `src/components/Sidebar.tsx` | All nav items enabled as NavLink; split into main + bottom groups; About added; footer updated to Phase 1 |
 | `src/pages/Home.tsx` | Replaced single status card with 2×2 card grid (active mode, privacy mode, last transcription, quick-start); kept system status section |
-| `src/lib/types.ts` | Added: AppSettings, HistoryEntry, DictationMode, VocabularyEntry, AiProvider, ModelEntry, DiagnosticItem, DiagnosticReport, PrivacyStatus; updated NavItem (removed `enabled` field) |
+| `src/lib/types.ts` | Types aligned with PR #5 backend contracts (see below); added Textarea/Select/Toggle; removed PrivacyStatus (replaced by PrivacySummary) |
 | `package.json` | Added zustand dependency |
 | `package-lock.json` | Updated lockfile |
+
+---
+
+## Type alignment with PR #5 backend contracts
+
+All types in `src/lib/types.ts` now match the Rust structs in `src-tauri/src/models/mod.rs`.
+
+| Frontend type | Changes from initial version |
+|---|---|
+| `AppSettings` | Fields: `active_mode`, `local_only_mode`, `theme`, `retention_days`, `audio_history_enabled`, `clipboard_restore_enabled`. Removed: `language`, `default_mode`, `shortcut`, `privacy_mode`, `db_path` |
+| `DictationMode` | `id: string` (was number); `active` (was `is_active`); `builtin` (was `is_builtin`) |
+| `VocabularyEntry` | `id: string` (was number); added `enabled: boolean` |
+| `HistoryEntry` | `id: string` (was number); `mode_used` (was `mode`); `timestamp: string` (was `created_at: number`); `was_inserted` (was `cleanup_applied`); removed `duration_secs`, `provider_name` |
+| `AiProvider` | `id: string` (was number); `model` (was `model_name`); `enabled` (was `is_active`); added `use_for_cleanup`, `use_for_transcription`, `api_key_set`; removed `api_key_hint`, `ProviderType` union |
+| `DiagnosticItem` | Renamed to `DiagnosticCheck`; `name` (was `label`); `message` (was `detail`); `status: string` (was union) |
+| `DiagnosticReport` | `checks: DiagnosticCheck[]` (was `items: DiagnosticItem[]`); `generated_at: string` (was number) |
+| `PrivacyStatus` | Replaced by `PrivacySummary`: `local_only_mode`, `audio_retention_days`, `history_retention_days`, `cloud_allowed`, `reason` |
+| New: `PrivacyOperation` | `{ operation_type: string, provider_id: string \| null }` |
+| New: `PrivacyDecision` | `{ allowed: boolean, reason: string }` |
 
 ---
 
@@ -78,15 +103,15 @@ future backend wiring.
 
 All mock data is labeled with `// MOCK:` comments.
 
-| File | Location | Description |
+| File | Variable | Description |
 |---|---|---|
-| `src/pages/History.tsx` | Lines 7–36 | `MOCK_ENTRIES` — 3 sample history entries |
-| `src/pages/Modes.tsx` | Lines 5–34 | `MOCK_MODES` — 5 built-in dictation modes |
-| `src/pages/Vocabulary.tsx` | Lines 5–25 | `MOCK_VOCABULARY` — 4 vocabulary entries |
-| `src/pages/Models.tsx` | Lines 6–15 | `MOCK_MODELS` — 1 installed model |
-| `src/pages/Providers.tsx` | Lines 5–16 | `MOCK_PROVIDERS` — 1 configured provider |
-| `src/pages/Privacy.tsx` | Lines 5–11 | `MOCK_PRIVACY_STATUS` — privacy state values |
-| `src/pages/Diagnostics.tsx` | Lines 5–22 | `MOCK_CHECK_ITEMS` — 7 diagnostic check items |
+| `src/pages/History.tsx` | `MOCK_ENTRIES` | 3 sample history entries (aligned to HistoryEntry fields) |
+| `src/pages/Modes.tsx` | `MOCK_MODES` | 5 built-in dictation modes (aligned to DictationMode fields) |
+| `src/pages/Vocabulary.tsx` | `MOCK_VOCABULARY` | 4 vocabulary entries (aligned to VocabularyEntry fields) |
+| `src/pages/Models.tsx` | `MOCK_MODELS` | 1 installed model |
+| `src/pages/Providers.tsx` | `MOCK_PROVIDERS` | 1 configured provider (aligned to AiProvider fields) |
+| `src/pages/Privacy.tsx` | `MOCK_PRIVACY_SUMMARY` | Privacy state (PrivacySummary fields) |
+| `src/pages/Diagnostics.tsx` | `MOCK_CHECK_ITEMS` | 7 diagnostic check items (DiagnosticCheck fields) |
 
 ---
 
@@ -105,14 +130,47 @@ has a `// TODO: wire to backend` comment.
 
 ---
 
+## Registered Tauri commands the frontend will wire (from PR #5)
+
+These commands are registered in the backend (PR #5). The frontend will call them in Phase 2+:
+
+| Tauri command | Frontend return type | Used by |
+|---|---|---|
+| `list_modes` | `DictationMode[]` | Modes page, Dictation page mode selector |
+| `get_mode` | `DictationMode` | Modes page |
+| `create_mode` | `DictationMode` | Modes page Add |
+| `update_mode` | `DictationMode` | Modes page Edit |
+| `delete_mode` | `void` | Modes page Delete |
+| `list_vocabulary` | `VocabularyEntry[]` | Vocabulary page |
+| `add_vocabulary_entry` | `VocabularyEntry` | Vocabulary page Add |
+| `update_vocabulary_entry` | `VocabularyEntry` | Vocabulary page Edit |
+| `delete_vocabulary_entry` | `void` | Vocabulary page Delete |
+| `list_history` | `HistoryEntry[]` | History page |
+| `get_history_entry` | `HistoryEntry` | History page detail |
+| `delete_history_entry` | `void` | History page delete |
+| `clear_history` | `void` | Settings page |
+| `get_settings` | `AppSettings` | Settings page, Privacy page |
+| `update_settings` | `void` | Settings page Save |
+| `list_providers` | `AiProvider[]` | Providers page |
+| `get_provider` | `AiProvider` | Providers page |
+| `test_provider_placeholder` | `string` | Providers page Test connection button |
+| `get_privacy_status` | `PrivacySummary` | Privacy page |
+| `enforce_privacy_preview` | `PrivacyDecision` | Privacy enforcement check |
+| `run_diagnostics_placeholder` | `DiagnosticReport` | Diagnostics page Run button |
+
+Note: no `create_provider`, `delete_provider`, `list_models`, `add_model`, or `remove_model`
+commands were registered in PR #5. Those pages remain fully mock.
+
+---
+
 ## Commands run and results
 
 | Command | Result |
 |---|---|
-| `npm install zustand` | ✅ zustand@5 added, 91 packages total |
-| `npm run lint` (tsc --noEmit) | ✅ 0 errors after 3 fixes |
-| `npm run build` (tsc + vite build) | ✅ Built in 1.89s, 274 kB JS, 24.9 kB CSS |
-| `git status --short` | ✅ Clean after all commits |
+| `npm install zustand` | ✅ zustand@5 added |
+| `npm run lint` (tsc --noEmit) | ✅ 0 errors |
+| `npm run build` (tsc + vite build) | ✅ Pass |
+| `pwsh scripts/quality-check.ps1` | ✅ Frontend checks pass |
 
 ---
 
@@ -128,36 +186,8 @@ has a `// TODO: wire to backend` comment.
 - FloatingOverlay can be toggled via uiStore but is not triggered by any shortcut yet (Phase 7)
 - Providers API key field displays only and stores nothing
 - About page paths are placeholder strings, not real system paths
-
----
-
-## What the backend agent needs to provide
-
-For the frontend to wire real data, the backend (phase/02-backend-contracts) must register:
-
-| Tauri command | Return type | Used by |
-|---|---|---|
-| `list_modes` | `DictationMode[]` | Modes page, Dictation page mode selector |
-| `get_mode` | `DictationMode` | Modes page |
-| `create_mode` | `DictationMode` | Modes page Add |
-| `update_mode` | `DictationMode` | Modes page Edit |
-| `delete_mode` | `()` | Modes page Delete |
-| `list_vocabulary` | `VocabularyEntry[]` | Vocabulary page |
-| `create_vocabulary_entry` | `VocabularyEntry` | Vocabulary page Add |
-| `delete_vocabulary_entry` | `()` | Vocabulary page Delete |
-| `list_history` | `HistoryEntry[]` | History page |
-| `get_settings` | `AppSettings` | Settings page, Privacy page |
-| `update_settings` | `AppSettings` | Settings page Save |
-| `list_providers` | `AiProvider[]` | Providers page |
-| `create_provider` | `AiProvider` | Providers page Add |
-| `delete_provider` | `()` | Providers page Delete |
-| `list_models` | `ModelEntry[]` | Models page |
-| `add_model` | `ModelEntry` | Models page Add |
-| `remove_model` | `()` | Models page Remove |
-| `get_privacy_status` | `PrivacyStatus` | Privacy page |
-| `run_diagnostics` | `DiagnosticReport` | Diagnostics page |
-
-All return types already exist in `src/lib/types.ts`.
+- No create_provider or delete_provider commands exist yet — Providers page Add/Delete remain disabled
+- Models page (add_model, remove_model) has no backend contract yet
 
 ---
 

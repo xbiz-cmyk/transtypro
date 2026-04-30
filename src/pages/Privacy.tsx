@@ -1,13 +1,15 @@
 import Card, { CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 
-// MOCK: privacy status — replace with real backend data in Phase 8
+// MOCK: privacy summary — replace with real backend data in Phase 8
 // TODO: wire to backend when get_privacy_status command is registered in api.ts
-const MOCK_PRIVACY_STATUS = {
-  mode: "local-only" as const,
-  audio_deleted_after_use: true,
-  cloud_calls_blocked: true,
-  retention_days: 30,
+// Returns PrivacySummary (matches Rust PrivacyService::get_privacy_status)
+const MOCK_PRIVACY_SUMMARY = {
+  local_only_mode: true,
+  audio_retention_days: 0,
+  history_retention_days: 30,
+  cloud_allowed: false,
+  reason: "local-only mode enabled",
 };
 
 const DATA_FLOW_ITEMS = [
@@ -39,9 +41,9 @@ const DATA_FLOW_ITEMS = [
 ];
 
 export default function Privacy() {
-  // MOCK: using MOCK_PRIVACY_STATUS — replace with useSettingsStore / backend call in Phase 8
-  const status = MOCK_PRIVACY_STATUS;
-  const isLocalOnly = status.mode === "local-only";
+  // MOCK: using MOCK_PRIVACY_SUMMARY — replace with useSettingsStore / backend call in Phase 8
+  const summary = MOCK_PRIVACY_SUMMARY;
+  const isLocalOnly = summary.local_only_mode;
 
   return (
     <div id="privacy-page" className="p-8 max-w-2xl">
@@ -67,23 +69,32 @@ export default function Privacy() {
         <div className="space-y-2">
           <StatusRow
             label="Cloud calls blocked"
-            value={status.cloud_calls_blocked ? "Yes" : "No"}
-            ok={status.cloud_calls_blocked}
+            value={!summary.cloud_allowed ? "Yes" : "No"}
+            ok={!summary.cloud_allowed}
           />
           <StatusRow
-            label="Audio deleted after use"
-            value={status.audio_deleted_after_use ? "Yes" : "No"}
-            ok={status.audio_deleted_after_use}
+            label="Audio retention"
+            value={
+              summary.audio_retention_days === 0
+                ? "Deleted after use"
+                : `${summary.audio_retention_days} days`
+            }
+            ok={summary.audio_retention_days === 0}
           />
           <StatusRow
             label="History retention"
             value={
-              status.retention_days === 0
+              summary.history_retention_days === 0
                 ? "Forever"
-                : `${status.retention_days} days`
+                : `${summary.history_retention_days} days`
             }
             ok={true}
           />
+          {summary.reason && (
+            <p className="text-xs text-(--color-text-muted) pt-1">
+              Reason: {summary.reason}
+            </p>
+          )}
         </div>
       </Card>
 
@@ -99,12 +110,12 @@ export default function Privacy() {
           <PrivacyBadge
             icon="🚫"
             label="No Cloud Calls"
-            active={status.cloud_calls_blocked}
+            active={!summary.cloud_allowed}
           />
           <PrivacyBadge
             icon="🗑️"
             label="Audio Deleted After Use"
-            active={status.audio_deleted_after_use}
+            active={summary.audio_retention_days === 0}
           />
         </div>
       </Card>
@@ -142,15 +153,15 @@ export default function Privacy() {
         <p className="text-sm text-(--color-text-secondary)">
           History entries are automatically deleted after{" "}
           <span className="font-medium text-(--color-text-primary)">
-            {status.retention_days === 0
+            {summary.history_retention_days === 0
               ? "never (kept forever)"
-              : `${status.retention_days} days`}
+              : `${summary.history_retention_days} days`}
           </span>
           . Audio recordings are{" "}
           <span className="font-medium text-(--color-text-primary)">
-            {status.audio_deleted_after_use
+            {summary.audio_retention_days === 0
               ? "deleted immediately after transcription"
-              : "kept according to your storage settings"}
+              : `kept for ${summary.audio_retention_days} days`}
           </span>
           .
         </p>

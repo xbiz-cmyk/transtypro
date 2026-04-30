@@ -30,28 +30,22 @@ export interface NavItem {
 }
 
 // ---------------------------------------------------------------------------
-// AppSettings — mirrors Rust AppSettings struct
+// AppSettings — mirrors Rust AppSettings struct (src-tauri/src/models/mod.rs)
 // ---------------------------------------------------------------------------
 
 export interface AppSettings {
+  /** Currently active dictation mode name */
+  active_mode: string;
+  /** Whether local-only mode is enabled (blocks all cloud calls) */
+  local_only_mode: boolean;
   /** UI theme: "dark" | "light" | "system" */
   theme: string;
-  /** UI language / locale code */
-  language: string;
-  /** Default dictation mode name */
-  default_mode: string;
-  /** Global shortcut string (e.g. "CommandOrControl+Shift+Space") */
-  shortcut: string;
-  /** Privacy mode: "local-only" | "cloud-enabled" */
-  privacy_mode: string;
   /** Number of days to retain history (0 = forever) */
   retention_days: number;
   /** Whether to persist audio recordings */
   audio_history_enabled: boolean;
   /** Whether to restore clipboard after dictation */
   clipboard_restore_enabled: boolean;
-  /** Filesystem path to the SQLite database */
-  db_path: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,21 +53,18 @@ export interface AppSettings {
 // ---------------------------------------------------------------------------
 
 export interface HistoryEntry {
-  id: number;
-  /** Unix timestamp (seconds) */
-  created_at: number;
-  /** Dictation mode used */
-  mode: string;
+  /** UUID string */
+  id: string;
   /** Raw transcript text */
   raw_text: string;
-  /** Cleaned/formatted text (may equal raw_text if no cleanup was applied) */
+  /** Cleaned/formatted text */
   cleaned_text: string;
-  /** Duration in seconds */
-  duration_secs: number;
-  /** Whether cleanup was applied */
-  cleanup_applied: boolean;
-  /** Name of provider used, or null */
-  provider_name: string | null;
+  /** Dictation mode used */
+  mode_used: string;
+  /** ISO-8601 timestamp string */
+  timestamp: string;
+  /** Whether the result was inserted into an external app */
+  was_inserted: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,15 +72,16 @@ export interface HistoryEntry {
 // ---------------------------------------------------------------------------
 
 export interface DictationMode {
-  id: number;
+  /** UUID string */
+  id: string;
   name: string;
   description: string;
-  /** Whether this is the currently active mode */
-  is_active: boolean;
-  /** Whether this is a built-in system mode (non-deletable) */
-  is_builtin: boolean;
   /** System prompt template for cleanup */
   system_prompt: string;
+  /** Whether this is the currently active mode */
+  active: boolean;
+  /** Whether this is a built-in system mode (non-deletable) */
+  builtin: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,35 +89,40 @@ export interface DictationMode {
 // ---------------------------------------------------------------------------
 
 export interface VocabularyEntry {
-  id: number;
+  /** UUID string */
+  id: string;
   /** The spoken term */
   term: string;
   /** The replacement text to insert */
   replacement: string;
   /** Category label (e.g. "Technical", "Personal") */
   category: string;
+  /** Whether this entry is active */
+  enabled: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // AiProvider — mirrors Rust AiProvider struct
 // ---------------------------------------------------------------------------
 
-export type ProviderType = "ollama" | "openai-compatible" | "anthropic";
-
 export interface AiProvider {
-  id: number;
+  /** UUID string */
+  id: string;
   name: string;
-  provider_type: ProviderType;
+  provider_type: string;
   base_url: string;
-  model_name: string;
-  /** Whether this is the active provider */
-  is_active: boolean;
-  /** API key is stored encrypted server-side; frontend only receives a masked hint */
-  api_key_hint: string | null;
+  /** Model name/identifier */
+  model: string;
+  /** Whether this provider is active */
+  enabled: boolean;
+  use_for_cleanup: boolean;
+  use_for_transcription: boolean;
+  /** Whether an API key is stored (key itself never sent to frontend) */
+  api_key_set: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// ModelEntry — local whisper-compatible model
+// ModelEntry — local whisper-compatible model (UI-only, no backend contract yet)
 // ---------------------------------------------------------------------------
 
 export interface ModelEntry {
@@ -142,27 +139,44 @@ export interface ModelEntry {
 }
 
 // ---------------------------------------------------------------------------
-// DiagnosticReport — mirrors Rust DiagnosticReport struct
+// DiagnosticCheck / DiagnosticReport — mirrors Rust structs
 // ---------------------------------------------------------------------------
 
-export interface DiagnosticItem {
-  label: string;
-  status: "ok" | "warn" | "error" | "unknown";
-  detail: string | null;
+export interface DiagnosticCheck {
+  name: string;
+  /** Status string: "pass", "fail", "pending", etc. */
+  status: string;
+  message: string;
 }
 
 export interface DiagnosticReport {
-  generated_at: number;
-  items: DiagnosticItem[];
+  checks: DiagnosticCheck[];
+  /** ISO-8601 timestamp string */
+  generated_at: string;
 }
 
 // ---------------------------------------------------------------------------
-// PrivacyStatus — frontend representation of current privacy state
+// PrivacySummary — mirrors Rust PrivacySummary struct
 // ---------------------------------------------------------------------------
 
-export interface PrivacyStatus {
-  mode: "local-only" | "cloud-enabled";
-  audio_deleted_after_use: boolean;
-  cloud_calls_blocked: boolean;
-  retention_days: number;
+export interface PrivacySummary {
+  local_only_mode: boolean;
+  audio_retention_days: number;
+  history_retention_days: number;
+  cloud_allowed: boolean;
+  reason: string;
+}
+
+// ---------------------------------------------------------------------------
+// PrivacyOperation / PrivacyDecision — mirrors Rust structs
+// ---------------------------------------------------------------------------
+
+export interface PrivacyOperation {
+  operation_type: string;
+  provider_id: string | null;
+}
+
+export interface PrivacyDecision {
+  allowed: boolean;
+  reason: string;
 }

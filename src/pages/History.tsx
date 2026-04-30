@@ -2,48 +2,43 @@ import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Input from "../components/ui/Input";
+import Select from "../components/ui/Select";
 
 // MOCK: history entries — replace with real backend data in Phase 2
+// TODO: wire to backend — useHistoryStore when list_history command is available
 const MOCK_ENTRIES = [
   {
-    id: 1,
-    created_at: 1745000000,
-    mode: "Email",
+    id: "entry-001",
     raw_text: "Hey can you send me the report by end of week",
     cleaned_text:
       "Hi, could you please send me the report by end of the week?",
-    duration_secs: 4,
-    cleanup_applied: true,
-    provider_name: null,
+    mode_used: "Email",
+    timestamp: "2026-04-29T10:00:00Z",
+    was_inserted: false,
   },
   {
-    id: 2,
-    created_at: 1745003600,
-    mode: "Developer",
+    id: "entry-002",
     raw_text: "git commit dash m feat add history page",
     cleaned_text: 'git commit -m "feat: add history page"',
-    duration_secs: 3,
-    cleanup_applied: true,
-    provider_name: null,
+    mode_used: "Developer",
+    timestamp: "2026-04-29T11:00:00Z",
+    was_inserted: true,
   },
   {
-    id: 3,
-    created_at: 1745007200,
-    mode: "Smart",
+    id: "entry-003",
     raw_text: "schedule a meeting for tomorrow at 2pm",
     cleaned_text: "Schedule a meeting for tomorrow at 2 PM.",
-    duration_secs: 2,
-    cleanup_applied: false,
-    provider_name: null,
+    mode_used: "Smart",
+    timestamp: "2026-04-29T12:00:00Z",
+    was_inserted: false,
   },
 ];
 
-function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleString();
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleString();
 }
 
 export default function History() {
-  // TODO: wire to backend — useHistoryStore when list_history command is available
   const entries = MOCK_ENTRIES;
 
   return (
@@ -64,29 +59,19 @@ export default function History() {
             className="flex-1 min-w-40"
           />
 
-          {/* Date range placeholder */}
-          <select
-            id="history-date-filter"
-            className="bg-(--color-surface-base) border border-(--color-border-default) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-secondary) focus:outline-none"
-            defaultValue="all"
-          >
+          <Select id="history-date-filter" defaultValue="all">
             <option value="all">All time</option>
             <option value="today">Today</option>
             <option value="week">This week</option>
             <option value="month">This month</option>
-          </select>
+          </Select>
 
-          {/* Mode filter placeholder */}
-          <select
-            id="history-mode-filter"
-            className="bg-(--color-surface-base) border border-(--color-border-default) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-secondary) focus:outline-none"
-            defaultValue="all"
-          >
+          <Select id="history-mode-filter" defaultValue="all">
             <option value="all">All modes</option>
             <option value="smart">Smart</option>
             <option value="email">Email</option>
             <option value="developer">Developer</option>
-          </select>
+          </Select>
         </div>
       </Card>
 
@@ -105,21 +90,18 @@ export default function History() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="muted">{entry.mode}</Badge>
-                    {entry.cleanup_applied && (
-                      <Badge variant="success">Cleaned</Badge>
+                    <Badge variant="muted">{entry.mode_used}</Badge>
+                    {entry.was_inserted && (
+                      <Badge variant="success">Inserted</Badge>
                     )}
                     <span className="text-xs text-(--color-text-muted)">
-                      {formatDate(entry.created_at)}
-                    </span>
-                    <span className="text-xs text-(--color-text-muted)">
-                      {entry.duration_secs}s
+                      {formatDate(entry.timestamp)}
                     </span>
                   </div>
                   <p className="text-sm text-(--color-text-primary) truncate">
                     {entry.cleaned_text}
                   </p>
-                  {entry.cleanup_applied && (
+                  {entry.raw_text !== entry.cleaned_text && (
                     <p className="text-xs text-(--color-text-muted) mt-1 truncate">
                       Raw: {entry.raw_text}
                     </p>

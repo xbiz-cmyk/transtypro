@@ -4,35 +4,39 @@ import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 
 // MOCK: vocabulary entries — replace with real backend data in Phase 2
+// TODO: wire to backend — when list_vocabulary command is available in Phase 2
 const MOCK_VOCABULARY = [
   {
-    id: 1,
+    id: "vocab-001",
     term: "git push origin main",
     replacement: "git push origin main",
     category: "Technical",
+    enabled: true,
   },
   {
-    id: 2,
+    id: "vocab-002",
     term: "PR",
     replacement: "pull request",
     category: "Technical",
+    enabled: true,
   },
   {
-    id: 3,
+    id: "vocab-003",
     term: "gonna",
     replacement: "going to",
     category: "Grammar",
+    enabled: true,
   },
   {
-    id: 4,
+    id: "vocab-004",
     term: "TTP",
     replacement: "transtypro",
     category: "Personal",
+    enabled: true,
   },
 ];
 
 export default function Vocabulary() {
-  // TODO: wire to backend — when list_vocabulary command is available in Phase 2
   const entries = MOCK_VOCABULARY;
 
   return (
@@ -78,7 +82,7 @@ export default function Vocabulary() {
                 key={entry.id}
                 className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-2 py-3 items-center"
               >
-                <span className="text-sm text-(--color-text-primary) font-mono">
+                <span className={`text-sm font-mono ${entry.enabled ? "text-(--color-text-primary)" : "text-(--color-text-muted) line-through"}`}>
                   {entry.term}
                 </span>
                 <span className="text-sm text-(--color-text-secondary)">

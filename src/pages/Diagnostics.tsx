@@ -4,53 +4,35 @@ import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 
 // MOCK: diagnostic check items — replace with real backend data in Phase 8
-// TODO: wire to backend when run_diagnostics command is registered in api.ts
+// TODO: wire to backend when run_diagnostics_placeholder command is registered in api.ts
 const MOCK_CHECK_ITEMS = [
-  { label: "Backend IPC", status: "ok" as const, detail: "ping → pong" },
-  {
-    label: "Microphone access",
-    status: "unknown" as const,
-    detail: "Phase 3",
-  },
-  {
-    label: "Transcription model",
-    status: "unknown" as const,
-    detail: "Phase 4",
-  },
-  {
-    label: "Cleanup provider",
-    status: "unknown" as const,
-    detail: "Phase 5",
-  },
-  { label: "SQLite database", status: "unknown" as const, detail: "Phase 2" },
-  {
-    label: "Text insertion",
-    status: "unknown" as const,
-    detail: "Phase 6",
-  },
-  {
-    label: "Global shortcut",
-    status: "unknown" as const,
-    detail: "Phase 7",
-  },
+  { name: "Backend IPC", status: "pass", message: "ping → pong" },
+  { name: "Microphone access", status: "pending", message: "Phase 3" },
+  { name: "Transcription model", status: "pending", message: "Phase 4" },
+  { name: "Cleanup provider", status: "pending", message: "Phase 5" },
+  { name: "SQLite database", status: "pending", message: "Phase 2" },
+  { name: "Text insertion", status: "pending", message: "Phase 6" },
+  { name: "Global shortcut", status: "pending", message: "Phase 7" },
 ];
 
-const statusBadgeVariant = {
-  ok: "success" as const,
-  warn: "warning" as const,
-  error: "danger" as const,
-  unknown: "muted" as const,
-};
+function statusBadgeVariant(
+  status: string,
+): "success" | "warning" | "danger" | "muted" {
+  if (status === "pass") return "success";
+  if (status === "fail") return "danger";
+  if (status === "warn") return "warning";
+  return "muted";
+}
 
-const statusLabel = {
-  ok: "OK",
-  warn: "Warn",
-  error: "Error",
-  unknown: "N/A",
-};
+function statusLabel(status: string): string {
+  if (status === "pass") return "Pass";
+  if (status === "fail") return "Fail";
+  if (status === "warn") return "Warn";
+  return "Pending";
+}
 
 export default function Diagnostics() {
-  // TODO: wire to backend when run_diagnostics command is available in Phase 8
+  // TODO: wire to backend when run_diagnostics_placeholder command is available in Phase 8
   const checks = MOCK_CHECK_ITEMS;
 
   return (
@@ -64,7 +46,7 @@ export default function Diagnostics() {
             variant="secondary"
             size="sm"
             disabled
-            title="Run diagnostics — Phase 8"
+            title="Run diagnostics — run_diagnostics_placeholder command — Phase 8"
           >
             Run diagnostics
           </Button>
@@ -89,20 +71,20 @@ export default function Diagnostics() {
           {/* MOCK: rendered from MOCK_CHECK_ITEMS above */}
           {checks.map((check) => (
             <div
-              key={check.label}
+              key={check.name}
               className="flex items-center justify-between py-2 border-b border-(--color-border-subtle) last:border-0"
             >
               <div className="flex items-center gap-3">
-                <Badge variant={statusBadgeVariant[check.status]}>
-                  {statusLabel[check.status]}
+                <Badge variant={statusBadgeVariant(check.status)}>
+                  {statusLabel(check.status)}
                 </Badge>
                 <span className="text-sm text-(--color-text-primary)">
-                  {check.label}
+                  {check.name}
                 </span>
               </div>
-              {check.detail && (
+              {check.message && (
                 <span className="text-xs text-(--color-text-muted)">
-                  {check.detail}
+                  {check.message}
                 </span>
               )}
             </div>

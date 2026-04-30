@@ -3,18 +3,22 @@ import Card, { CardHeader } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 import Input from "../components/ui/Input";
+import Select from "../components/ui/Select";
 import EmptyState from "../components/ui/EmptyState";
 
 // MOCK: provider list — replace with real backend data in Phase 5
+// TODO: wire to backend — when list_providers command is available in Phase 5
 const MOCK_PROVIDERS = [
   {
-    id: 1,
+    id: "1",
     name: "Local Ollama",
-    provider_type: "ollama" as const,
+    provider_type: "ollama",
     base_url: "http://localhost:11434",
-    model_name: "llama3",
-    is_active: true,
-    api_key_hint: null,
+    model: "llama3",
+    enabled: true,
+    use_for_cleanup: true,
+    use_for_transcription: false,
+    api_key_set: false,
   },
 ];
 
@@ -25,7 +29,6 @@ const PROVIDER_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function Providers() {
-  // TODO: wire to backend — when list_providers command is available in Phase 5
   const providers = MOCK_PROVIDERS;
 
   const [newProviderType, setNewProviderType] = useState("ollama");
@@ -65,7 +68,7 @@ export default function Providers() {
                     <span className="text-sm font-medium text-(--color-text-primary)">
                       {provider.name}
                     </span>
-                    {provider.is_active && (
+                    {provider.enabled && (
                       <Badge variant="success">Active</Badge>
                     )}
                     <Badge variant="muted">
@@ -73,7 +76,7 @@ export default function Providers() {
                     </Badge>
                   </div>
                   <p className="text-xs text-(--color-text-muted)">
-                    {provider.base_url} · {provider.model_name}
+                    {provider.base_url} · {provider.model}
                   </p>
                 </div>
                 <Button
@@ -94,25 +97,16 @@ export default function Providers() {
       <Card>
         <CardHeader>Add provider</CardHeader>
         <div className="space-y-4">
-          {/* Provider type */}
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="provider-type"
-              className="text-sm font-medium text-(--color-text-secondary)"
-            >
-              Provider type
-            </label>
-            <select
-              id="provider-type"
-              value={newProviderType}
-              onChange={(e) => setNewProviderType(e.target.value)}
-              className="bg-(--color-surface-base) border border-(--color-border-default) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-primary) focus:outline-none focus:ring-2 focus:ring-(--color-brand-500)/50"
-            >
-              <option value="ollama">Ollama (local)</option>
-              <option value="openai-compatible">OpenAI-compatible</option>
-              <option value="anthropic">Anthropic</option>
-            </select>
-          </div>
+          <Select
+            id="provider-type"
+            label="Provider type"
+            value={newProviderType}
+            onChange={(e) => setNewProviderType(e.target.value)}
+          >
+            <option value="ollama">Ollama (local)</option>
+            <option value="openai-compatible">OpenAI-compatible</option>
+            <option value="anthropic">Anthropic</option>
+          </Select>
 
           <Input
             id="provider-base-url"
@@ -166,7 +160,7 @@ export default function Providers() {
             <Button
               variant="ghost"
               disabled
-              title="Test connection — not yet implemented"
+              title="Test connection — test_provider_placeholder command"
             >
               Test connection
             </Button>

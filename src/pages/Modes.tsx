@@ -4,53 +4,53 @@ import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 
 // MOCK: built-in dictation modes — replace with real backend data in Phase 2
+// TODO: wire to backend — useModesStore when list_modes command is available
 const MOCK_MODES = [
   {
-    id: 1,
+    id: "mode-001",
     name: "Smart",
     description:
       "Automatically detects context and applies the best formatting.",
-    is_active: true,
-    is_builtin: true,
     system_prompt: "",
+    active: true,
+    builtin: true,
   },
   {
-    id: 2,
+    id: "mode-002",
     name: "Raw",
     description: "No cleanup — returns the transcript exactly as spoken.",
-    is_active: false,
-    is_builtin: true,
     system_prompt: "",
+    active: false,
+    builtin: true,
   },
   {
-    id: 3,
+    id: "mode-003",
     name: "Clean",
     description: "Fixes grammar and punctuation without changing meaning.",
-    is_active: false,
-    is_builtin: true,
     system_prompt: "",
+    active: false,
+    builtin: true,
   },
   {
-    id: 4,
+    id: "mode-004",
     name: "Email",
     description: "Formats text as a professional email body.",
-    is_active: false,
-    is_builtin: true,
     system_prompt: "",
+    active: false,
+    builtin: true,
   },
   {
-    id: 5,
+    id: "mode-005",
     name: "Developer",
     description:
       "Preserves commands, flags, code terms, and technical vocabulary.",
-    is_active: false,
-    is_builtin: true,
     system_prompt: "",
+    active: false,
+    builtin: true,
   },
 ];
 
 export default function Modes() {
-  // TODO: wire to backend — useModesStore when list_modes command is available
   const modes = MOCK_MODES;
 
   return (
@@ -90,10 +90,10 @@ export default function Modes() {
                     <span className="text-sm font-medium text-(--color-text-primary)">
                       {mode.name}
                     </span>
-                    {mode.is_active && (
+                    {mode.active && (
                       <Badge variant="success">Active</Badge>
                     )}
-                    {mode.is_builtin && (
+                    {mode.builtin && (
                       <Badge variant="muted">Built-in</Badge>
                     )}
                   </div>
@@ -110,7 +110,7 @@ export default function Modes() {
                   >
                     Edit
                   </Button>
-                  {!mode.is_builtin && (
+                  {!mode.builtin && (
                     <Button
                       variant="danger"
                       size="sm"

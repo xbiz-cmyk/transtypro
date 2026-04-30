@@ -2,6 +2,8 @@ import { useState } from "react";
 import Card, { CardHeader } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
+import Textarea from "../components/ui/Textarea";
+import Select from "../components/ui/Select";
 import { useUiStore } from "../stores/uiStore";
 
 // MOCK: dictation mode options — replace with real modes from backend in Phase 2
@@ -35,18 +37,18 @@ export default function Dictation() {
       <Card className="mb-5">
         <CardHeader>Mode</CardHeader>
         <div className="flex items-center gap-3">
-          <select
+          <Select
             id="mode-selector"
             value={activeMode}
             onChange={(e) => setActiveMode(e.target.value)}
-            className="bg-(--color-surface-base) border border-(--color-border-default) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-primary) focus:outline-none focus:ring-2 focus:ring-(--color-brand-500)/50 flex-1"
+            className="flex-1"
           >
             {MOCK_MODES.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
           <Badge variant="muted">
             {/* MOCK: active mode badge */}
             Active: {activeMode}
@@ -86,12 +88,13 @@ export default function Dictation() {
       {/* Result area */}
       <Card className="mb-5">
         <CardHeader>Result</CardHeader>
-        <textarea
+        <Textarea
           id="result-textarea"
           readOnly
           placeholder="Transcribed and cleaned text will appear here..."
           value={resultText}
-          className="w-full h-32 bg-(--color-surface-base) border border-(--color-border-subtle) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-primary) placeholder:text-(--color-text-muted) resize-none focus:outline-none cursor-default"
+          rows={4}
+          className="w-full cursor-default"
         />
       </Card>
 
