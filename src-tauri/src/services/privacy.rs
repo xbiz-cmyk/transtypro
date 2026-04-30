@@ -1,19 +1,18 @@
 use crate::errors::AppError;
-use crate::models::{AppSettings, PrivacyDecision, PrivacyOperation};
+use crate::models::{PrivacyDecision, PrivacyOperation, PrivacySummary};
 
 #[derive(Default)]
 pub struct PrivacyService;
 
 impl PrivacyService {
     /// Returns a safe static default — real enforcement wired in Phase 8.
-    pub fn get_privacy_status(&self) -> Result<AppSettings, AppError> {
-        Ok(AppSettings {
-            active_mode: "Smart Mode".to_string(),
+    pub fn get_privacy_status(&self) -> Result<PrivacySummary, AppError> {
+        Ok(PrivacySummary {
             local_only_mode: false,
-            theme: "dark".to_string(),
-            retention_days: 30,
-            audio_history_enabled: false,
-            clipboard_restore_enabled: false,
+            audio_retention_days: 0,
+            history_retention_days: 30,
+            cloud_allowed: true,
+            reason: "static placeholder until storage is wired".to_string(),
         })
     }
 

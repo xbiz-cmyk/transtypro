@@ -17,6 +17,12 @@ impl VocabularyService {
         ))
     }
 
+    pub fn update_entry(&self, _entry: VocabularyEntry) -> Result<VocabularyEntry, AppError> {
+        Err(AppError::FeatureNotImplemented(
+            "vocabulary storage starts in Phase 2 storage".to_string(),
+        ))
+    }
+
     pub fn delete_entry(&self, _id: String) -> Result<(), AppError> {
         Err(AppError::FeatureNotImplemented(
             "vocabulary storage starts in Phase 2 storage".to_string(),

@@ -16,6 +16,13 @@ pub fn add_vocabulary_entry(entry: VocabularyEntry) -> Result<VocabularyEntry, S
 }
 
 #[tauri::command]
+pub fn update_vocabulary_entry(entry: VocabularyEntry) -> Result<VocabularyEntry, String> {
+    VocabularyService
+        .update_entry(entry)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn delete_vocabulary_entry(id: String) -> Result<(), String> {
     VocabularyService
         .delete_entry(id)

@@ -34,8 +34,11 @@ pub struct AppSettings {
 pub struct DictationMode {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub system_prompt: String,
     pub active: bool,
+    /// True if this mode ships with the app and cannot be deleted.
+    pub builtin: bool,
 }
 
 /// A vocabulary substitution rule.
@@ -45,6 +48,7 @@ pub struct VocabularyEntry {
     pub term: String,
     pub replacement: String,
     pub category: String,
+    pub enabled: bool,
 }
 
 /// A single transcription history record.
@@ -69,6 +73,8 @@ pub struct AiProvider {
     pub base_url: String,
     pub model: String,
     pub enabled: bool,
+    pub use_for_cleanup: bool,
+    pub use_for_transcription: bool,
     /// True if an API key has been stored; the key itself is never held here.
     pub api_key_set: bool,
 }
@@ -88,6 +94,17 @@ pub struct DiagnosticReport {
     pub checks: Vec<DiagnosticCheck>,
     /// ISO 8601 timestamp string.
     pub generated_at: String,
+}
+
+/// Current privacy state returned to the frontend status bar.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrivacySummary {
+    pub local_only_mode: bool,
+    /// Days to retain audio files; 0 means delete immediately.
+    pub audio_retention_days: u32,
+    pub history_retention_days: u32,
+    pub cloud_allowed: bool,
+    pub reason: String,
 }
 
 /// Describes a privacy-relevant operation to evaluate before execution.

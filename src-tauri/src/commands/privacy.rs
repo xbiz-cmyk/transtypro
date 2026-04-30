@@ -1,8 +1,8 @@
-use crate::models::{AppSettings, PrivacyDecision, PrivacyOperation};
+use crate::models::{PrivacyDecision, PrivacyOperation, PrivacySummary};
 use crate::services::PrivacyService;
 
 #[tauri::command]
-pub fn get_privacy_status() -> Result<AppSettings, String> {
+pub fn get_privacy_status() -> Result<PrivacySummary, String> {
     PrivacyService
         .get_privacy_status()
         .map_err(|e| e.to_string())

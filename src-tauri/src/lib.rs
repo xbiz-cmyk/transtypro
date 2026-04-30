@@ -31,6 +31,7 @@ pub fn run() {
             // Phase 2 — vocabulary
             commands::vocabulary::list_vocabulary,
             commands::vocabulary::add_vocabulary_entry,
+            commands::vocabulary::update_vocabulary_entry,
             commands::vocabulary::delete_vocabulary_entry,
             // Phase 2 — history
             commands::history::list_history,
