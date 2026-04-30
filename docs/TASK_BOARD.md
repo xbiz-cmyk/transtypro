@@ -13,13 +13,15 @@
 
 ## Planning
 
-- [ ] Phase 1 UI shell — branch `phase/01-ui-shell`, awaiting PR #2 merge to launch
-- [ ] Phase 2 backend contracts — branch `phase/02-backend-contracts`, Wave 1, awaiting PR #2 merge to launch
-- [ ] Phase 2 storage/settings — branch `phase/02-storage-settings`, Wave 2, awaiting backend contracts review
+- [ ] Phase 2 storage/settings — branch `phase/02-storage-settings`, Wave 2, start after Phase 2 contracts merge
 
 ## In progress
 
-None — awaiting orchestrator approval to launch agents.
+- [ ] Phase 1 UI shell — branch `phase/01-ui-shell`
+
+## Review
+
+- [ ] Phase 2 backend contracts — branch `phase/02-backend-contracts`, PR open, awaiting orchestrator review
 
 ## Review
 
