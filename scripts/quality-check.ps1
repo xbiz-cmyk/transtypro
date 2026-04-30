@@ -64,7 +64,7 @@ $result = Run-Check -Label "cargo test" -Block {
 }
 if (-not $result) { $failed += "cargo test" }
 
-# 5. Git status (informational — always passes)
+# 6. Git status (informational — always passes)
 Write-Host ""
 Write-Host "==> git status" -ForegroundColor Cyan
 git status --short
