@@ -4,8 +4,10 @@
 /// Phase 0 stubs return `FeatureNotImplemented`.
 /// Phase 2 adds service structs for all core domains.
 /// Phase 2 storage and beyond wire real implementations.
+/// Phase 3 adds AudioService and AudioState for microphone recording.
 use crate::errors::AppError;
 
+pub mod audio;
 pub mod diagnostics;
 pub mod history;
 pub mod modes;
@@ -14,6 +16,7 @@ pub mod providers;
 pub mod settings;
 pub mod vocabulary;
 
+pub use audio::{AudioService, AudioState};
 pub use diagnostics::DiagnosticsService;
 pub use history::HistoryService;
 pub use modes::ModesService;

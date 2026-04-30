@@ -121,3 +121,34 @@ pub struct PrivacyDecision {
     pub allowed: bool,
     pub reason: String,
 }
+
+// ─────────────────────────── Phase 3: Audio ──────────────────────────────────
+
+/// Information about an available microphone input device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MicrophoneInfo {
+    pub name: String,
+    pub is_default: bool,
+}
+
+/// Live recording state returned by get_recording_status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordingStatus {
+    pub is_recording: bool,
+    pub selected_microphone: Option<String>,
+    /// RMS level of recent samples, range 0.0–1.0.
+    pub level_rms: f32,
+    /// Total samples collected in the buffer (all channels combined).
+    pub sample_count: u64,
+}
+
+/// Result returned after a successful stop_recording call.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordingResult {
+    /// Absolute path to the written WAV file.
+    pub file_path: String,
+    pub duration_ms: u64,
+    pub sample_rate: u32,
+    /// Always 1 — WAV output is mono regardless of capture channels.
+    pub channels: u16,
+}

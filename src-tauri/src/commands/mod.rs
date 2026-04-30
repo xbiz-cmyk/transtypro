@@ -4,6 +4,7 @@
 /// They must not contain business logic.
 use crate::errors::AppError;
 
+pub mod audio;
 pub mod diagnostics;
 pub mod history;
 pub mod modes;

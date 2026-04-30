@@ -47,6 +47,10 @@ pub enum AppError {
     /// A diagnostics check or report operation failed.
     #[error("Diagnostics error: {0}")]
     DiagnosticsError(String),
+
+    /// An audio recording or device operation failed.
+    #[error("Audio error: {0}")]
+    AudioError(String),
 }
 
 /// Serialize AppError for Tauri's IPC layer.
