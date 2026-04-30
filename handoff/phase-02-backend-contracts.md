@@ -15,8 +15,8 @@ Database/Privacy agent depend on.
 Every data-dependent service method returns `AppError::FeatureNotImplemented` until the
 Database agent wires real SQLite repositories in `phase/02-storage-settings`.
 
-Three operations return safe static defaults rather than errors:
-- `PrivacyService::get_privacy_status` — returns default `AppSettings` with `local_only_mode: false`
+Four operations return safe static defaults rather than errors:
+- `PrivacyService::get_privacy_status` — returns static `PrivacySummary` with `local_only_mode: false`
 - `PrivacyService::enforce_privacy_preview` — returns `PrivacyDecision { allowed: true, reason: "preview only" }`
 - `DiagnosticsService::run_diagnostics_placeholder` — returns a static two-check report
 - `ProvidersService::test_provider_placeholder` — returns `Ok("provider test not yet implemented")`
@@ -38,7 +38,7 @@ Three operations return safe static defaults rather than errors:
 | `src-tauri/src/services/diagnostics.rs` | DiagnosticsService struct with static report stub |
 | `src-tauri/src/commands/settings.rs` | get_settings, update_settings commands |
 | `src-tauri/src/commands/modes.rs` | list_modes, get_mode, create_mode, update_mode, delete_mode commands |
-| `src-tauri/src/commands/vocabulary.rs` | list_vocabulary, add_vocabulary_entry, delete_vocabulary_entry commands |
+| `src-tauri/src/commands/vocabulary.rs` | list_vocabulary, add_vocabulary_entry, update_vocabulary_entry, delete_vocabulary_entry commands |
 | `src-tauri/src/commands/history.rs` | list_history, get_history_entry, delete_history_entry, clear_history commands |
 | `src-tauri/src/commands/privacy.rs` | get_privacy_status, enforce_privacy_preview commands |
 | `src-tauri/src/commands/providers.rs` | list_providers, get_provider, test_provider_placeholder commands |
@@ -48,11 +48,11 @@ Three operations return safe static defaults rather than errors:
 
 | File | Change |
 |---|---|
-| `src-tauri/src/models/mod.rs` | Added 9 new structs (AppSettings, DictationMode, VocabularyEntry, HistoryEntry, AiProvider, DiagnosticCheck, DiagnosticReport, PrivacyOperation, PrivacyDecision) |
+| `src-tauri/src/models/mod.rs` | Added 10 new structs (AppSettings, DictationMode, VocabularyEntry, HistoryEntry, AiProvider, DiagnosticCheck, DiagnosticReport, PrivacyOperation, PrivacyDecision, PrivacySummary) |
 | `src-tauri/src/errors/mod.rs` | Added 6 new error variants (NotFound, ValidationError, StorageError, PrivacyBlocked, ProviderUnavailable, DiagnosticsError) |
 | `src-tauri/src/services/mod.rs` | Added submodule declarations and re-exports; preserved Phase 0 stubs |
 | `src-tauri/src/commands/mod.rs` | Added submodule declarations; preserved ping, get_app_version, get_status_summary |
-| `src-tauri/src/lib.rs` | Registered all 23 Tauri commands |
+| `src-tauri/src/lib.rs` | Registered all 24 Tauri commands |
 
 ---
 
@@ -73,6 +73,7 @@ update_mode
 delete_mode
 list_vocabulary
 add_vocabulary_entry
+update_vocabulary_entry
 delete_vocabulary_entry
 list_history
 get_history_entry
@@ -104,6 +105,7 @@ run_diagnostics_placeholder
 ### VocabularyService (`services/vocabulary.rs`)
 - `list_vocabulary() -> Result<Vec<VocabularyEntry>, AppError>` — returns FeatureNotImplemented
 - `add_entry(entry: VocabularyEntry) -> Result<VocabularyEntry, AppError>` — returns FeatureNotImplemented
+- `update_entry(entry: VocabularyEntry) -> Result<VocabularyEntry, AppError>` — returns FeatureNotImplemented
 - `delete_entry(id: String) -> Result<(), AppError>` — returns FeatureNotImplemented
 
 ### HistoryService (`services/history.rs`)
@@ -113,7 +115,7 @@ run_diagnostics_placeholder
 - `clear_history() -> Result<(), AppError>` — returns FeatureNotImplemented
 
 ### PrivacyService (`services/privacy.rs`)
-- `get_privacy_status() -> Result<AppSettings, AppError>` — returns static default AppSettings
+- `get_privacy_status() -> Result<PrivacySummary, AppError>` — returns static default PrivacySummary
 - `enforce_privacy_preview(op: PrivacyOperation) -> Result<PrivacyDecision, AppError>` — returns `{ allowed: true, reason: "preview only" }`
 
 ### ProvidersService (`services/providers.rs`)
@@ -133,12 +135,13 @@ run_diagnostics_placeholder
 
 ### New (Phase 2)
 - `AppSettings { active_mode: String, local_only_mode: bool, theme: String, retention_days: u32, audio_history_enabled: bool, clipboard_restore_enabled: bool }`
-- `DictationMode { id: String, name: String, system_prompt: String, active: bool }`
-- `VocabularyEntry { id: String, term: String, replacement: String, category: String }`
+- `DictationMode { id: String, name: String, description: String, system_prompt: String, active: bool, builtin: bool }`
+- `VocabularyEntry { id: String, term: String, replacement: String, category: String, enabled: bool }`
 - `HistoryEntry { id: String, raw_text: String, cleaned_text: String, mode_used: String, timestamp: String, was_inserted: bool }`
-- `AiProvider { id: String, name: String, provider_type: String, base_url: String, model: String, enabled: bool, api_key_set: bool }`
+- `AiProvider { id: String, name: String, provider_type: String, base_url: String, model: String, enabled: bool, use_for_cleanup: bool, use_for_transcription: bool, api_key_set: bool }`
 - `DiagnosticCheck { name: String, status: String, message: String }`
 - `DiagnosticReport { checks: Vec<DiagnosticCheck>, generated_at: String }`
+- `PrivacySummary { local_only_mode: bool, audio_retention_days: u32, history_retention_days: u32, cloud_allowed: bool, reason: String }`
 - `PrivacyOperation { operation_type: String, provider_id: Option<String> }`
 - `PrivacyDecision { allowed: bool, reason: String }`
 
@@ -221,6 +224,7 @@ import type {
   HistoryEntry,
   AiProvider,
   DiagnosticReport,
+  PrivacySummary,
   PrivacyOperation,
   PrivacyDecision,
 } from "./types";
@@ -255,6 +259,9 @@ export const listVocabulary = () =>
 export const addVocabularyEntry = (entry: VocabularyEntry) =>
   invoke<VocabularyEntry>("add_vocabulary_entry", { entry });
 
+export const updateVocabularyEntry = (entry: VocabularyEntry) =>
+  invoke<VocabularyEntry>("update_vocabulary_entry", { entry });
+
 export const deleteVocabularyEntry = (id: string) =>
   invoke<void>("delete_vocabulary_entry", { id });
 
@@ -273,7 +280,7 @@ export const clearHistory = () =>
 
 // Privacy
 export const getPrivacyStatus = () =>
-  invoke<AppSettings>("get_privacy_status");
+  invoke<PrivacySummary>("get_privacy_status");
 
 export const enforcePrivacyPreview = (op: PrivacyOperation) =>
   invoke<PrivacyDecision>("enforce_privacy_preview", { op });
@@ -308,8 +315,10 @@ export interface AppSettings {
 export interface DictationMode {
   id: string;
   name: string;
+  description: string;
   system_prompt: string;
   active: boolean;
+  builtin: boolean;
 }
 
 export interface VocabularyEntry {
@@ -317,6 +326,7 @@ export interface VocabularyEntry {
   term: string;
   replacement: string;
   category: string;
+  enabled: boolean;
 }
 
 export interface HistoryEntry {
@@ -335,6 +345,8 @@ export interface AiProvider {
   base_url: string;
   model: string;
   enabled: boolean;
+  use_for_cleanup: boolean;
+  use_for_transcription: boolean;
   api_key_set: boolean;
 }
 
@@ -347,6 +359,14 @@ export interface DiagnosticCheck {
 export interface DiagnosticReport {
   checks: DiagnosticCheck[];
   generated_at: string;
+}
+
+export interface PrivacySummary {
+  local_only_mode: boolean;
+  audio_retention_days: number;
+  history_retention_days: number;
+  cloud_allowed: boolean;
+  reason: string;
 }
 
 export interface PrivacyOperation {
