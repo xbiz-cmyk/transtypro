@@ -23,6 +23,30 @@ pub enum AppError {
     /// A serialization/deserialization error.
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+
+    /// A requested resource was not found.
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    /// Input failed validation rules.
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+
+    /// A persistence or storage operation failed.
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
+    /// An operation was blocked by the privacy policy.
+    #[error("Privacy blocked: {0}")]
+    PrivacyBlocked(String),
+
+    /// An AI provider is unavailable or misconfigured.
+    #[error("Provider unavailable: {0}")]
+    ProviderUnavailable(String),
+
+    /// A diagnostics check or report operation failed.
+    #[error("Diagnostics error: {0}")]
+    DiagnosticsError(String),
 }
 
 /// Serialize AppError for Tauri's IPC layer.
