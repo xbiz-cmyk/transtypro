@@ -11,6 +11,7 @@ pub mod modes;
 pub mod privacy;
 pub mod providers;
 pub mod settings;
+pub mod transcription;
 pub mod vocabulary;
 
 /// Verify frontend-backend IPC communication.

@@ -249,6 +249,8 @@ mod tests {
             retention_days: 90,
             audio_history_enabled: false,
             clipboard_restore_enabled: false,
+            whisper_binary_path: None,
+            whisper_model_path: None,
         };
         SettingsRepository::new(&conn).upsert(&s).unwrap();
         let svc = PrivacyService::new(Arc::new(Mutex::new(conn)));

@@ -4,6 +4,7 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
+Phase 4 Local Transcription — IMPLEMENTED on `phase/04-local-transcription`, PR open for review.
 Phase 3 Audio Recording — IMPLEMENTED on `phase/03-audio-recording`, PR open for review.
 Phase 2 Storage (Wave 2) — MERGED into main.
 Phase 0 — Bootstrap — MERGED (PR #1, commit `ad0678d`).
@@ -11,6 +12,21 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 4 Local Transcription: Local whisper.cpp binary invocation wired to the Dictation page.
+- New: `src-tauri/src/services/transcription.rs` — `TranscriptionService::transcribe` (path validation, Command::new, WAV cleanup) + 8 unit tests
+- New: `src-tauri/src/commands/transcription.rs` — `transcribe_audio` Tauri command with privacy check
+- New: `TranscriptionResult { raw_text, duration_ms, model_path }` model
+- New: `AppError::TranscriptionError(String)` variant
+- New migration 002: `ALTER TABLE settings ADD COLUMN whisper_binary_path / whisper_model_path`
+- Updated: `AppSettings` — `whisper_binary_path: Option<String>`, `whisper_model_path: Option<String>`
+- Updated: `settings_repo` — reads/writes two new columns
+- Updated: `Dictation.tsx` — Transcribe button, transcript textarea, Copy button
+- Updated: `Models.tsx` — Whisper configuration card (binary path + model path + Save)
+- Updated: `src/lib/api.ts` + `src/lib/types.ts` — `transcribeAudio`, `getSettings`, `updateSettings` wrappers and types
+- 70 unit tests; all pass (13 new tests added in Phase 4)
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (70 pass), npm build, lint, quality-check.ps1
+- Handoff: `handoff/phase-04-local-transcription.md`
 
 Phase 3 Audio Recording: Real microphone recording to temporary WAV file.
 - New: `cpal = "0.15"`, `hound = "3.5"` dependencies
@@ -70,23 +86,25 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
+- Phase 4 Local Transcription PR open against `main` — awaiting orchestrator review and merge
 - Phase 3 Audio Recording PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
-- No transcription (Phase 4). WAV files are saved but not processed.
-- No audio retention sweep (Phase 8). Temporary WAV files accumulate.
-- No microphone preference persistence (Phase 3 by design).
-- No cleanup providers (Phase 5) — `ProvidersService` still returns `FeatureNotImplemented`.
-- No dictation pipeline (Phase 6) — `HistoryService::create_history_entry` is ready but not called.
+- No OS file picker for whisper binary or model path (Phase 5/6).
+- No model download UI (out of scope for Phase 4).
+- No cleanup providers (Phase 5) — raw transcript only, no polishing.
+- No dictation pipeline (Phase 6) — transcript not saved to history; `HistoryService::create_history_entry` is ready but not called.
 - No global shortcut (Phase 7).
+- No text insertion (Phase 9) — Insert button remains disabled.
 - `DiagnosticsService` still returns a static report (Phase 8).
 - History list is empty until the dictation pipeline creates entries.
 - Retention policy is stored but not enforced (Phase 8).
+- WAV cleanup runs only on transcription success when `audio_history_enabled = false`; broader date-based retention not yet enforced.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/03-audio-recording` PR
-2. Launch Phase 4: Local Transcription agent → `phase/04-local-transcription`
-3. Optionally in parallel: Phase 5 Cleanup Providers → `phase/05-cleanup-providers`
-4. After Phase 4 and Phase 5: start Phase 6 dictation pipeline
+1. Orchestrator: review and merge `phase/04-local-transcription` PR (and `phase/03-audio-recording` if not yet merged)
+2. Launch Phase 5: Cleanup Providers → `phase/05-cleanup-providers`
+3. Launch Phase 6: End-to-end dictation pipeline → `phase/06-dictation-pipeline`
+4. Phase 5/6 prep: OS file picker for whisper binary and model path
