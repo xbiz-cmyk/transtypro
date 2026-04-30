@@ -1,14 +1,19 @@
-/**
- * transtypro — Application shell.
- *
- * Layout with sidebar, status bar, and routed content area.
- * Uses react-router-dom for page routing.
- */
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
+import FloatingOverlay from "./components/FloatingOverlay";
 import Home from "./pages/Home";
+import Dictation from "./pages/Dictation";
+import History from "./pages/History";
+import Modes from "./pages/Modes";
+import Vocabulary from "./pages/Vocabulary";
+import Models from "./pages/Models";
+import Providers from "./pages/Providers";
+import Settings from "./pages/Settings";
+import Privacy from "./pages/Privacy";
+import Diagnostics from "./pages/Diagnostics";
+import About from "./pages/About";
 import { getAppVersion, getStatusSummary } from "./lib/api";
 
 export default function App() {
@@ -49,9 +54,22 @@ export default function App() {
           <main className="flex-1 overflow-y-auto">
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/dictation" element={<Dictation />} />
+              <Route path="/history" element={<History />} />
+              <Route path="/modes" element={<Modes />} />
+              <Route path="/vocabulary" element={<Vocabulary />} />
+              <Route path="/models" element={<Models />} />
+              <Route path="/providers" element={<Providers />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/diagnostics" element={<Diagnostics />} />
+              <Route path="/about" element={<About />} />
             </Routes>
           </main>
         </div>
+
+        {/* Floating dictation overlay — shell only, not functional */}
+        <FloatingOverlay />
       </div>
     </BrowserRouter>
   );

@@ -1,12 +1,10 @@
-/**
- * transtypro — Home page.
- *
- * Shows application status summary and getting-started information.
- * This is the landing page the user sees after opening the app.
- */
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getStatusSummary, ping } from "../lib/api";
 import type { StatusSummary } from "../lib/types";
+import Card, { CardHeader } from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 export default function Home() {
   const [status, setStatus] = useState<StatusSummary | null>(null);
@@ -14,7 +12,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Verify IPC and load status
     async function init() {
       try {
         const pong = await ping();
@@ -33,9 +30,10 @@ export default function Home() {
     init();
   }, []);
 
+  const isLocalOnly = status ? status.privacy_mode === "local-only" : true;
+
   return (
     <div id="home-page" className="p-8 max-w-3xl">
-      {/* Page heading */}
       <h1 className="text-2xl font-semibold text-(--color-text-primary) mb-1">
         Welcome to transtypro
       </h1>
@@ -43,14 +41,89 @@ export default function Home() {
         Speak instead of type — local-first AI dictation for your desktop.
       </p>
 
-      {/* Backend connection check */}
-      <div
-        id="connection-status"
-        className="bg-(--color-surface-raised) border border-(--color-border-default) rounded-(--radius-card) p-5 mb-6"
-      >
-        <h2 className="text-sm font-medium text-(--color-text-secondary) uppercase tracking-wider mb-3">
-          System Status
-        </h2>
+      {error && <ErrorMessage message={error} className="mb-6" />}
+
+      {/* Status cards row */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Active mode card */}
+        <Card>
+          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
+            Active mode
+          </p>
+          <p className="text-lg font-semibold text-(--color-text-primary)">
+            {status?.active_mode ?? "Smart"}
+          </p>
+          <Link
+            to="/modes"
+            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
+          >
+            Change mode →
+          </Link>
+        </Card>
+
+        {/* Privacy mode card */}
+        <Card>
+          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
+            Privacy mode
+          </p>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${isLocalOnly ? "bg-(--color-status-success)" : "bg-(--color-status-warning)"}`}
+            />
+            <p className="text-lg font-semibold text-(--color-text-primary)">
+              {isLocalOnly ? "Local only" : "Cloud enabled"}
+            </p>
+          </div>
+          <Link
+            to="/privacy"
+            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
+          >
+            View privacy →
+          </Link>
+        </Card>
+
+        {/* Last transcription card */}
+        <Card>
+          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
+            Last transcription
+          </p>
+          <p className="text-sm text-(--color-text-muted) italic">
+            {status && status.history_count > 0
+              ? `${status.history_count} session(s) recorded`
+              : "No sessions yet"}
+          </p>
+          <Link
+            to="/history"
+            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
+          >
+            View history →
+          </Link>
+        </Card>
+
+        {/* Quick start card */}
+        <Card>
+          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
+            Quick start
+          </p>
+          <p className="text-sm text-(--color-text-secondary)">
+            Go to{" "}
+            <Link
+              to="/dictation"
+              className="text-(--color-brand-300) hover:underline"
+            >
+              Dictation
+            </Link>{" "}
+            to record your first session.
+          </p>
+          <p className="text-xs text-(--color-text-muted) mt-1">
+            Recording available in Phase 3
+          </p>
+        </Card>
+      </div>
+
+      {/* System status */}
+      <Card>
+        <CardHeader>System status</CardHeader>
         <div className="space-y-3">
           <StatusRow
             label="Backend connection"
@@ -61,74 +134,43 @@ export default function Home() {
                   ? "Connected"
                   : "Not connected"
             }
-            state={backendOk === null ? "loading" : backendOk ? "ok" : "error"}
+            state={
+              backendOk === null ? "loading" : backendOk ? "ok" : "error"
+            }
           />
-          {status && (
-            <>
-              <StatusRow
-                label="Privacy mode"
-                value={status.privacy_mode === "local-only" ? "Local only" : "Cloud enabled"}
-                state="ok"
-              />
-              <StatusRow
-                label="Transcription model"
-                value={status.transcription_ready ? "Ready" : "Not configured"}
-                state={status.transcription_ready ? "ok" : "info"}
-              />
-              <StatusRow
-                label="Cleanup provider"
-                value={status.cleanup_provider ?? "None"}
-                state="info"
-              />
-              <StatusRow
-                label="Active mode"
-                value={status.active_mode}
-                state="ok"
-              />
-              <StatusRow
-                label="History entries"
-                value={String(status.history_count)}
-                state="info"
-              />
-            </>
-          )}
+          <StatusRow
+            label="Transcription model"
+            value={
+              status?.transcription_ready ? "Ready" : "Not configured"
+            }
+            state={status?.transcription_ready ? "ok" : "info"}
+          />
+          <StatusRow
+            label="Cleanup provider"
+            value={status?.cleanup_provider ?? "None"}
+            state="info"
+          />
+          <StatusRow
+            label="History entries"
+            value={String(status?.history_count ?? 0)}
+            state="info"
+          />
         </div>
-      </div>
+      </Card>
 
-      {/* Error display */}
-      {error && (
-        <div className="bg-(--color-status-error)/10 border border-(--color-status-error)/30 rounded-(--radius-card) p-4 mb-6">
-          <p className="text-sm text-(--color-status-error)">{error}</p>
-        </div>
-      )}
-
-      {/* Getting started */}
-      <div className="bg-(--color-surface-raised) border border-(--color-border-default) rounded-(--radius-card) p-5">
-        <h2 className="text-sm font-medium text-(--color-text-secondary) uppercase tracking-wider mb-3">
-          Getting Started
-        </h2>
-        <div className="space-y-2 text-sm text-(--color-text-secondary)">
-          <p>
-            transtypro is being built phase by phase. This is{" "}
-            <span className="font-medium text-(--color-brand-300)">Phase 0</span> — the
-            project skeleton is ready and the frontend-backend connection is verified.
-          </p>
-          <p>Upcoming phases will add:</p>
-          <ul className="list-disc list-inside space-y-1 ml-2 text-(--color-text-muted)">
-            <li>UI shell with all pages (Phase 1)</li>
-            <li>Settings and local storage (Phase 2)</li>
-            <li>Audio recording (Phase 3)</li>
-            <li>Local transcription (Phase 4)</li>
-            <li>AI text cleanup (Phase 5)</li>
-            <li>End-to-end dictation (Phase 6)</li>
-          </ul>
-        </div>
+      {/* Transcript model badge */}
+      <div className="mt-4 flex items-center gap-2">
+        {status?.transcription_ready ? (
+          <Badge variant="success">Model ready</Badge>
+        ) : (
+          <Badge variant="muted">No model — configure in Models</Badge>
+        )}
+        {isLocalOnly && <Badge variant="success">Local only</Badge>}
       </div>
     </div>
   );
 }
 
-/** Individual status row within a status card. */
 function StatusRow({
   label,
   value,
@@ -151,7 +193,9 @@ function StatusRow({
         <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
         <span className="text-sm text-(--color-text-secondary)">{label}</span>
       </div>
-      <span className="text-sm text-(--color-text-primary) font-medium">{value}</span>
+      <span className="text-sm text-(--color-text-primary) font-medium">
+        {value}
+      </span>
     </div>
   );
 }
