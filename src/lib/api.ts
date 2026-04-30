@@ -6,10 +6,12 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AppSettings,
   MicrophoneInfo,
   RecordingResult,
   RecordingStatus,
   StatusSummary,
+  TranscriptionResult,
 } from "./types";
 
 /** Verify frontend-backend IPC communication. */
@@ -25,6 +27,20 @@ export async function getAppVersion(): Promise<string> {
 /** Get the application status summary for the home page. */
 export async function getStatusSummary(): Promise<StatusSummary> {
   return invoke<StatusSummary>("get_status_summary");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Settings (wrappers added in Phase 4 when first needed by Models page)
+// ---------------------------------------------------------------------------
+
+/** Return the persisted application settings. */
+export async function getSettings(): Promise<AppSettings> {
+  return invoke<AppSettings>("get_settings");
+}
+
+/** Persist updated application settings. */
+export async function updateSettings(settings: AppSettings): Promise<void> {
+  return invoke<void>("update_settings", { settings });
 }
 
 // ---------------------------------------------------------------------------
@@ -56,4 +72,13 @@ export async function cancelRecording(): Promise<RecordingStatus> {
 /** Return the current recording state with a live RMS level reading. */
 export async function getRecordingStatus(): Promise<RecordingStatus> {
   return invoke<RecordingStatus>("get_recording_status");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Local transcription
+// ---------------------------------------------------------------------------
+
+/** Transcribe the WAV file at the given path using the configured local binary. */
+export async function transcribeAudio(filePath: string): Promise<TranscriptionResult> {
+  return invoke<TranscriptionResult>("transcribe_audio", { filePath });
 }

@@ -5,6 +5,7 @@
 /// Phase 2 adds service structs for all core domains.
 /// Phase 2 storage and beyond wire real implementations.
 /// Phase 3 adds AudioService and AudioState for microphone recording.
+/// Phase 4 adds TranscriptionService for local whisper.cpp execution.
 use crate::errors::AppError;
 
 pub mod audio;
@@ -14,6 +15,7 @@ pub mod modes;
 pub mod privacy;
 pub mod providers;
 pub mod settings;
+pub mod transcription;
 pub mod vocabulary;
 
 pub use audio::{AudioService, AudioState};
@@ -23,14 +25,8 @@ pub use modes::ModesService;
 pub use privacy::PrivacyService;
 pub use providers::ProvidersService;
 pub use settings::SettingsService;
+pub use transcription::TranscriptionService;
 pub use vocabulary::VocabularyService;
-
-/// Placeholder for the transcription service (Phase 3-4).
-pub fn transcribe_audio(_audio_path: &str) -> Result<String, AppError> {
-    Err(AppError::FeatureNotImplemented(
-        "audio transcription starts in Phase 4".to_string(),
-    ))
-}
 
 /// Placeholder for the cleanup service (Phase 5).
 pub fn cleanup_text(_raw_text: &str, _mode: &str) -> Result<String, AppError> {

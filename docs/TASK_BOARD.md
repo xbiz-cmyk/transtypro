@@ -2,7 +2,6 @@
 
 ## Backlog
 
-- [ ] Phase 4 local transcription
 - [ ] Phase 5 cleanup providers
 - [ ] Phase 6 end-to-end dictation pipeline
 - [ ] Phase 7 global shortcut and context
@@ -20,6 +19,7 @@ None.
 
 ## Review
 
+- [ ] Phase 4 local transcription — branch `phase/04-local-transcription`, PR open, awaiting orchestrator review
 - [ ] Phase 3 audio recording — branch `phase/03-audio-recording`, PR open, awaiting orchestrator review
 
 ## Done
