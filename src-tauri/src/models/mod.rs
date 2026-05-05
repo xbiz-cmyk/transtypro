@@ -139,6 +139,21 @@ pub struct TranscriptionResult {
     pub model_path: String,
 }
 
+// ─────────────────────────── Phase 5: Cleanup ────────────────────────────────
+
+/// Result returned after a successful AI cleanup call.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CleanupResult {
+    /// The cleaned/formatted text returned by the provider.
+    pub cleaned_text: String,
+    /// ID of the provider that performed the cleanup.
+    pub provider_id: String,
+    /// Display name of the provider.
+    pub provider_name: String,
+    /// Wall-clock time the provider took to respond, in milliseconds.
+    pub duration_ms: u64,
+}
+
 // ─────────────────────────── Phase 3: Audio ──────────────────────────────────
 
 /// Information about an available microphone input device.
