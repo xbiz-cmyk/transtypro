@@ -106,7 +106,24 @@ impl ProvidersService {
     ///
     /// The key is NEVER stored in SQLite. Only `api_key_set = true` is written to the DB.
     /// If the keychain is unavailable, returns `ProviderError` — never falls back to plain text.
+    ///
+    /// Order of operations:
+    ///   1. Verify provider exists (returns NotFound immediately if not).
+    ///   2. Write key to OS keychain.
+    ///   3. Set api_key_set = true in SQLite.
+    ///   4. If step 3 fails, attempt to delete the just-written keychain entry before
+    ///      returning the original DB error, preventing an orphan keychain entry.
     pub fn set_api_key(&self, id: &str, api_key: &str) -> Result<(), AppError> {
+        // Step 1: confirm provider exists before touching keychain.
+        {
+            let conn = self
+                .db
+                .lock()
+                .map_err(|_| AppError::StorageError("database lock is poisoned".into()))?;
+            ProvidersRepository::new(&conn).get_by_id(id)?;
+        }
+
+        // Step 2: write to OS keychain.
         let username = format!("provider:{id}");
         let entry = keyring::Entry::new("transtypro", &username)
             .map_err(|e| AppError::ProviderError(format!("Cannot access OS keychain: {e}")))?;
@@ -115,11 +132,21 @@ impl ProvidersService {
                 "Cannot store API key: OS keychain unavailable. {e}"
             ))
         })?;
-        let conn = self
-            .db
-            .lock()
-            .map_err(|_| AppError::StorageError("database lock is poisoned".into()))?;
-        ProvidersRepository::new(&conn).set_api_key_flag(id, true)
+
+        // Step 3: update DB flag; on failure roll back keychain entry.
+        let db_result = {
+            let conn = self
+                .db
+                .lock()
+                .map_err(|_| AppError::StorageError("database lock is poisoned".into()))?;
+            ProvidersRepository::new(&conn).set_api_key_flag(id, true)
+        };
+        if let Err(db_err) = db_result {
+            // Best-effort rollback — ignore secondary error.
+            let _ = entry.delete_credential();
+            return Err(db_err);
+        }
+        Ok(())
     }
 
     /// Retrieve an API key from the OS keychain.
@@ -194,5 +221,36 @@ impl ProvidersService {
             .lock()
             .map_err(|_| AppError::StorageError("database lock is poisoned".into()))?;
         ProvidersRepository::new(&conn).list_enabled_cleanup()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations::run_migrations;
+    use rusqlite::Connection;
+
+    fn migrated_db() -> Arc<Mutex<rusqlite::Connection>> {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        Arc::new(Mutex::new(conn))
+    }
+
+    // ── set_api_key safety ────────────────────────────────────────────────────
+
+    /// set_api_key must return NotFound for an unknown provider ID without
+    /// ever reaching the OS keychain.  This is purely a DB-level check so it
+    /// runs without real keychain access.
+    #[test]
+    fn test_set_api_key_missing_provider_returns_not_found() {
+        let db = migrated_db();
+        let svc = ProvidersService::new(db);
+        let err = svc
+            .set_api_key("nonexistent-provider-id", "sk-test")
+            .unwrap_err();
+        assert!(
+            matches!(err, AppError::NotFound(_)),
+            "expected NotFound for unknown provider ID, got {err:?}"
+        );
     }
 }
