@@ -82,6 +82,8 @@ pub fn run() {
             commands::audio::stop_recording,
             commands::audio::cancel_recording,
             commands::audio::get_recording_status,
+            // Phase 4 — local transcription
+            commands::transcription::transcribe_audio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

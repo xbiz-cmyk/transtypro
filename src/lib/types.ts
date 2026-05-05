@@ -46,6 +46,10 @@ export interface AppSettings {
   audio_history_enabled: boolean;
   /** Whether to restore clipboard after dictation */
   clipboard_restore_enabled: boolean;
+  /** Full path to the whisper.cpp-compatible binary. Null if not configured. */
+  whisper_binary_path: string | null;
+  /** Full path to the whisper.cpp model file. Null if not configured. */
+  whisper_model_path: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,4 +213,18 @@ export interface RecordingResult {
   sample_rate: number;
   /** Always 1 — WAV output is mono regardless of capture channels. */
   channels: number;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Transcription — mirrors Rust models in src-tauri/src/models/mod.rs
+// ---------------------------------------------------------------------------
+
+/** Result returned after a successful local transcription call. */
+export interface TranscriptionResult {
+  /** The raw transcript text captured from whisper stdout. */
+  raw_text: string;
+  /** Wall-clock time the binary took to run, in milliseconds. */
+  duration_ms: number;
+  /** The model path that was used. */
+  model_path: string;
 }

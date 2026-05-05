@@ -59,8 +59,18 @@ CREATE TABLE IF NOT EXISTS history (
 );
 "#;
 
+/// Migration 002 — add whisper binary and model path to settings.
+///
+/// The migration runner in `run_migrations` tracks applied versions in
+/// `schema_migrations`, so each migration executes exactly once even if
+/// `run_migrations` is called on every startup.
+const MIGRATION_002: &str = r#"
+ALTER TABLE settings ADD COLUMN whisper_binary_path TEXT DEFAULT NULL;
+ALTER TABLE settings ADD COLUMN whisper_model_path TEXT DEFAULT NULL;
+"#;
+
 /// Ordered migration list: (version, sql).
-const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001)];
+const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001), (2, MIGRATION_002)];
 
 /// Run all pending migrations against the given connection.
 ///
@@ -99,4 +109,38 @@ pub fn run_migrations(conn: &rusqlite::Connection) -> Result<(), AppError> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn migrated() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        conn
+    }
+
+    #[test]
+    fn test_migrations_run_cleanly() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_migration_002_adds_whisper_columns() {
+        let conn = migrated();
+        conn.execute_batch("SELECT whisper_binary_path, whisper_model_path FROM settings LIMIT 1")
+            .expect("migration 002 must have added whisper_binary_path and whisper_model_path");
+    }
+
+    #[test]
+    fn test_run_migrations_is_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        // Running a second time must not fail (columns already exist but
+        // the migration runner skips already-applied versions).
+        run_migrations(&conn).unwrap();
+    }
 }

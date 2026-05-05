@@ -51,6 +51,10 @@ pub enum AppError {
     /// An audio recording or device operation failed.
     #[error("Audio error: {0}")]
     AudioError(String),
+
+    /// A local speech transcription operation failed.
+    #[error("Transcription error: {0}")]
+    TranscriptionError(String),
 }
 
 /// Serialize AppError for Tauri's IPC layer.

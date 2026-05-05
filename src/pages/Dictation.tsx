@@ -11,8 +11,14 @@ import {
   listMicrophones,
   startRecording,
   stopRecording,
+  transcribeAudio,
 } from "../lib/api";
-import type { MicrophoneInfo, RecordingResult, RecordingStatus } from "../lib/types";
+import type {
+  MicrophoneInfo,
+  RecordingResult,
+  RecordingStatus,
+  TranscriptionResult,
+} from "../lib/types";
 
 export default function Dictation() {
   const [micList, setMicList] = useState<MicrophoneInfo[]>([]);
@@ -21,6 +27,8 @@ export default function Dictation() {
   const [isLoading, setIsLoading] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus | null>(null);
   const [lastResult, setLastResult] = useState<RecordingResult | null>(null);
+  const [transcriptResult, setTranscriptResult] = useState<TranscriptionResult | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -60,6 +68,7 @@ export default function Dictation() {
   const handleRecord = async () => {
     setError(null);
     setLastResult(null);
+    setTranscriptResult(null);
     setIsLoading(true);
     try {
       const status = await startRecording(selectedMic ?? undefined);
@@ -107,7 +116,28 @@ export default function Dictation() {
     setIsRecording(false);
     setRecordingStatus(null);
     setLastResult(null);
+    setTranscriptResult(null);
     setError(null);
+  };
+
+  const handleTranscribe = async () => {
+    if (!lastResult) return;
+    setIsTranscribing(true);
+    setError(null);
+    try {
+      const result = await transcribeAudio(lastResult.file_path);
+      setTranscriptResult(result);
+    } catch (err: unknown) {
+      setError(String(err));
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (transcriptResult?.raw_text) {
+      navigator.clipboard.writeText(transcriptResult.raw_text).catch(() => {});
+    }
   };
 
   const levelPercent = Math.min((recordingStatus?.level_rms ?? 0) * 100, 100);
@@ -121,8 +151,8 @@ export default function Dictation() {
         Dictation
       </h1>
       <p className="text-sm text-(--color-text-secondary) mb-8">
-        Press Record, speak naturally, and press Stop to save a temporary WAV
-        file. Transcription is available in Phase 4.
+        Press Record, speak naturally, then Stop. Press Transcribe to run local
+        speech recognition using your configured whisper binary.
       </p>
 
       {error && (
@@ -229,13 +259,13 @@ export default function Dictation() {
         <Textarea
           id="result-textarea"
           readOnly
-          placeholder="Transcribed text will appear here — transcription is Phase 4."
-          value=""
+          placeholder="Transcribed text will appear here after you press Transcribe."
+          value={transcriptResult?.raw_text ?? ""}
           rows={4}
           className="w-full cursor-default"
         />
 
-        {/* WAV file info after stop */}
+        {/* WAV file info and Transcribe button */}
         {lastResult && (
           <div className="mt-3 p-3 bg-(--color-surface-base) border border-(--color-border-subtle) rounded-(--radius-btn)">
             <p className="text-xs font-medium text-(--color-text-secondary) mb-1">
@@ -244,19 +274,42 @@ export default function Dictation() {
             <p className="text-xs text-(--color-text-muted) break-all mb-1">
               {lastResult.file_path}
             </p>
-            <p className="text-xs text-(--color-text-muted)">
+            <p className="text-xs text-(--color-text-muted) mb-3">
               {durationSec}s · {lastResult.sample_rate} Hz · mono 16-bit PCM
             </p>
-            <p className="text-xs text-(--color-text-muted) mt-1 italic">
-              Transcription not yet available — coming in Phase 4.
-            </p>
+            {isTranscribing ? (
+              <p className="text-sm text-(--color-text-muted) italic">
+                Transcribing…
+              </p>
+            ) : transcriptResult ? (
+              <p className="text-xs text-(--color-text-muted)">
+                Transcribed in {transcriptResult.duration_ms}ms
+              </p>
+            ) : (
+              <Button
+                id="transcribe-button"
+                variant="primary"
+                onClick={handleTranscribe}
+              >
+                Transcribe
+              </Button>
+            )}
           </div>
         )}
       </Card>
 
-      {/* Action buttons — disabled until transcription is wired (Phase 4+) */}
+      {/* Action buttons */}
       <div className="flex items-center gap-3">
-        <Button variant="secondary" disabled title="No text to copy yet">
+        <Button
+          variant="secondary"
+          disabled={!transcriptResult?.raw_text}
+          title={
+            transcriptResult?.raw_text
+              ? "Copy transcript to clipboard"
+              : "No text to copy yet"
+          }
+          onClick={handleCopy}
+        >
           Copy
         </Button>
         <Button

@@ -27,6 +27,10 @@ pub struct AppSettings {
     pub retention_days: u32,
     pub audio_history_enabled: bool,
     pub clipboard_restore_enabled: bool,
+    /// Full path to the whisper.cpp-compatible binary. None if not configured.
+    pub whisper_binary_path: Option<String>,
+    /// Full path to the whisper.cpp model file. None if not configured.
+    pub whisper_model_path: Option<String>,
 }
 
 /// A named dictation mode (Smart, Raw, Clean, Email, etc.).
@@ -120,6 +124,19 @@ pub struct PrivacyOperation {
 pub struct PrivacyDecision {
     pub allowed: bool,
     pub reason: String,
+}
+
+// ──────────────────────── Phase 4: Transcription ─────────────────────────────
+
+/// Result returned after a successful local transcription call.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranscriptionResult {
+    /// The raw transcript text captured from the whisper binary stdout.
+    pub raw_text: String,
+    /// Wall-clock time spent invoking the binary, in milliseconds.
+    pub duration_ms: u64,
+    /// The model path that was used for this transcription.
+    pub model_path: String,
 }
 
 // ─────────────────────────── Phase 3: Audio ──────────────────────────────────
