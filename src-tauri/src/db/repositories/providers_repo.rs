@@ -321,7 +321,8 @@ mod tests {
         let conn = migrated();
         let repo = ProvidersRepository::new(&conn);
         // Active cleanup provider — should appear
-        repo.insert(&make_provider("a", "Active", "ollama")).unwrap();
+        repo.insert(&make_provider("a", "Active", "ollama"))
+            .unwrap();
         // Disabled provider — should NOT appear
         let mut p2 = make_provider("b", "Disabled", "ollama");
         p2.enabled = false;

@@ -88,11 +88,7 @@ CREATE TABLE IF NOT EXISTS providers (
 "#;
 
 /// Ordered migration list: (version, sql).
-const MIGRATIONS: &[(i64, &str)] = &[
-    (1, MIGRATION_001),
-    (2, MIGRATION_002),
-    (3, MIGRATION_003),
-];
+const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001), (2, MIGRATION_002), (3, MIGRATION_003)];
 
 /// Run all pending migrations against the given connection.
 ///

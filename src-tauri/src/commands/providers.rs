@@ -23,8 +23,13 @@ pub fn create_provider(
     use_for_cleanup: bool,
     state: State<'_, AppState>,
 ) -> Result<AiProvider, AppError> {
-    ProvidersService::new(state.db.clone())
-        .create_provider(&name, &provider_type, &base_url, &model, use_for_cleanup)
+    ProvidersService::new(state.db.clone()).create_provider(
+        &name,
+        &provider_type,
+        &base_url,
+        &model,
+        use_for_cleanup,
+    )
 }
 
 #[tauri::command]
@@ -37,8 +42,14 @@ pub fn update_provider(
     use_for_cleanup: bool,
     state: State<'_, AppState>,
 ) -> Result<AiProvider, AppError> {
-    ProvidersService::new(state.db.clone())
-        .update_provider(&id, &name, &base_url, &model, enabled, use_for_cleanup)
+    ProvidersService::new(state.db.clone()).update_provider(
+        &id,
+        &name,
+        &base_url,
+        &model,
+        enabled,
+        use_for_cleanup,
+    )
 }
 
 #[tauri::command]
