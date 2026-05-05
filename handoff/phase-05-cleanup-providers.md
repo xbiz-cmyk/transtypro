@@ -31,6 +31,14 @@ CRUD operations: `list_all`, `get_by_id`, `insert`, `update`, `delete`, `set_api
 **ProvidersService** (`src-tauri/src/services/providers.rs`)  
 Delegates to `ProvidersRepository` for all CRUD. API keys stored in OS keychain (`keyring = "3"`) under service `"transtypro"`, username `"provider:{id}"`. The key value is never returned to the frontend. Only the `api_key_set` boolean flag lives in SQLite.
 
+`set_api_key` safety order:
+1. Verify provider exists in DB (returns `NotFound` immediately if not — no keychain write occurs).
+2. Write key to OS keychain.
+3. Update `api_key_set = true` in SQLite.
+4. If step 3 fails, attempt to delete the just-written keychain entry before returning the original DB error (best-effort rollback — prevents orphan keychain entries).
+
+The `test_set_api_key_missing_provider_returns_not_found` test verifies step 1 using in-memory SQLite with no OS keychain dependency. Rollback behavior in step 4 is not unit-tested because it requires simulating a DB failure after a real keychain write; this is verified manually by confirming `set_api_key_flag` is called after `set_password` and the rollback path (`entry.delete_credential()`) is reachable on error.
+
 **CleanupService** (`src-tauri/src/services/cleanup.rs`)  
 - Fetches provider from DB, rejects disabled providers with `CleanupError`
 - Enforces privacy via `PrivacyService::enforce_privacy_preview`:
