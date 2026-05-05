@@ -6,7 +6,9 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AiProvider,
   AppSettings,
+  CleanupResult,
   MicrophoneInfo,
   RecordingResult,
   RecordingStatus,
@@ -81,4 +83,71 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
 /** Transcribe the WAV file at the given path using the configured local binary. */
 export async function transcribeAudio(filePath: string): Promise<TranscriptionResult> {
   return invoke<TranscriptionResult>("transcribe_audio", { filePath });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Providers
+// ---------------------------------------------------------------------------
+
+/** List all configured AI providers. */
+export async function listProviders(): Promise<AiProvider[]> {
+  return invoke<AiProvider[]>("list_providers");
+}
+
+/** Create a new AI provider. Returns the created provider including its generated ID. */
+export async function createProvider(params: {
+  name: string;
+  providerType: string;
+  baseUrl: string;
+  model: string;
+  useForCleanup: boolean;
+}): Promise<AiProvider> {
+  return invoke<AiProvider>("create_provider", params);
+}
+
+/** Update an existing AI provider's mutable fields. */
+export async function updateProvider(params: {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  useForCleanup: boolean;
+}): Promise<AiProvider> {
+  return invoke<AiProvider>("update_provider", params);
+}
+
+/** Delete a provider by ID. Also removes its OS keychain entry. */
+export async function deleteProvider(id: string): Promise<void> {
+  return invoke<void>("delete_provider", { id });
+}
+
+/** Test the connection to a provider. Returns a human-readable status string. */
+export async function testProviderConnection(id: string): Promise<string> {
+  return invoke<string>("test_provider_connection", { id });
+}
+
+/**
+ * Store an API key for a provider in the OS keychain.
+ * The key value is NOT returned to the frontend after this call.
+ */
+export async function setProviderApiKey(id: string, apiKey: string): Promise<void> {
+  return invoke<void>("set_provider_api_key", { id, apiKey });
+}
+
+/** List all enabled providers configured for text cleanup. */
+export async function listEnabledCleanupProviders(): Promise<AiProvider[]> {
+  return invoke<AiProvider[]>("list_enabled_cleanup_providers");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Cleanup
+// ---------------------------------------------------------------------------
+
+/** Send raw transcript text to a cleanup provider and return the cleaned result. */
+export async function cleanupText(
+  rawText: string,
+  providerId: string,
+): Promise<CleanupResult> {
+  return invoke<CleanupResult>("cleanup_text", { rawText, providerId });
 }
