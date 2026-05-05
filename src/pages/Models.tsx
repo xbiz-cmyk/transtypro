@@ -33,6 +33,7 @@ export default function Models() {
   const [binaryPath, setBinaryPath] = useState("");
   const [modelPath, setModelPath] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function Models() {
             }
           : prev
       );
+      setHasSaved(true);
     } catch (err: unknown) {
       setSettingsError(String(err));
     } finally {
@@ -146,7 +148,7 @@ export default function Models() {
             placeholder="/usr/local/bin/whisper-cpp"
             helperText="Full path to the whisper.cpp-compatible binary."
             value={binaryPath}
-            onChange={(e) => setBinaryPath(e.target.value)}
+            onChange={(e) => { setBinaryPath(e.target.value); setHasSaved(false); }}
             disabled={settings === null || isSaving}
           />
           <Input
@@ -155,7 +157,7 @@ export default function Models() {
             placeholder="/path/to/ggml-base.en.bin"
             helperText="Full path to the whisper.cpp-compatible model file."
             value={modelPath}
-            onChange={(e) => setModelPath(e.target.value)}
+            onChange={(e) => { setModelPath(e.target.value); setHasSaved(false); }}
             disabled={settings === null || isSaving}
           />
           <Button
@@ -163,8 +165,9 @@ export default function Models() {
             variant="primary"
             disabled={settings === null || isSaving}
             onClick={handleSave}
+            className={hasSaved ? "opacity-75 brightness-110" : ""}
           >
-            {isSaving ? "Saving…" : "Save"}
+            {isSaving ? "Saving…" : hasSaved ? "Saved ✓" : "Save"}
           </Button>
         </div>
       </Card>
