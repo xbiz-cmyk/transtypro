@@ -5,7 +5,7 @@ Use this file to keep long-running agent work stable across sessions.
 ## Current phase
 
 Phase 4 Local Transcription — IMPLEMENTED on `phase/04-local-transcription`, PR open for review.
-Phase 3 Audio Recording — IMPLEMENTED on `phase/03-audio-recording`, PR open for review.
+Phase 3 Audio Recording — MERGED into main.
 Phase 2 Storage (Wave 2) — MERGED into main.
 Phase 0 — Bootstrap — MERGED (PR #1, commit `ad0678d`).
 Phase 2 Backend Contracts — MERGED into main.
@@ -87,7 +87,6 @@ Phase 0: Project skeleton created and merged into `main`.
 ## Current orchestrator status
 
 - Phase 4 Local Transcription PR open against `main` — awaiting orchestrator review and merge
-- Phase 3 Audio Recording PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
@@ -104,7 +103,7 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/04-local-transcription` PR (and `phase/03-audio-recording` if not yet merged)
+1. Orchestrator: review and merge `phase/04-local-transcription` PR
 2. Launch Phase 5: Cleanup Providers → `phase/05-cleanup-providers`
 3. Launch Phase 6: End-to-end dictation pipeline → `phase/06-dictation-pipeline`
 4. Phase 5/6 prep: OS file picker for whisper binary and model path

@@ -20,7 +20,6 @@ None.
 ## Review
 
 - [ ] Phase 4 local transcription — branch `phase/04-local-transcription`, PR open, awaiting orchestrator review
-- [ ] Phase 3 audio recording — branch `phase/03-audio-recording`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -29,6 +28,7 @@ None.
 - [x] Phase 2 backend contracts — merged into main
 - [x] Phase 2 storage (Wave 2) — merged into main
 - [x] QA setup — merged into main
+- [x] Phase 3 audio recording — merged into main
 
 ## Blockers
 
