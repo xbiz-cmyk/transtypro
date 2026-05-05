@@ -70,10 +70,18 @@ pub fn run() {
             // Phase 2 — privacy
             commands::privacy::get_privacy_status,
             commands::privacy::enforce_privacy_preview,
-            // Phase 2 — providers (placeholder)
+            // Phase 5 — providers (real SQLite-backed)
             commands::providers::list_providers,
             commands::providers::get_provider,
+            commands::providers::create_provider,
+            commands::providers::update_provider,
+            commands::providers::delete_provider,
+            commands::providers::test_provider_connection,
+            commands::providers::set_provider_api_key,
+            commands::providers::list_enabled_cleanup_providers,
             commands::providers::test_provider_placeholder,
+            // Phase 5 — cleanup
+            commands::cleanup::cleanup_text,
             // Phase 2 — diagnostics (placeholder)
             commands::diagnostics::run_diagnostics_placeholder,
             // Phase 3 — audio recording

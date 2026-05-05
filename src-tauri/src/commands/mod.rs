@@ -5,6 +5,7 @@
 use crate::errors::AppError;
 
 pub mod audio;
+pub mod cleanup;
 pub mod diagnostics;
 pub mod history;
 pub mod modes;
