@@ -69,8 +69,26 @@ ALTER TABLE settings ADD COLUMN whisper_binary_path TEXT DEFAULT NULL;
 ALTER TABLE settings ADD COLUMN whisper_model_path TEXT DEFAULT NULL;
 "#;
 
+/// Migration 003 — providers table for AI cleanup and transcription providers.
+///
+/// api_key_set is a boolean flag only; the actual key bytes live in the OS
+/// keychain via the `keyring` crate, never in SQLite.
+const MIGRATION_003: &str = r#"
+CREATE TABLE IF NOT EXISTS providers (
+    id                    TEXT    PRIMARY KEY,
+    name                  TEXT    NOT NULL,
+    provider_type         TEXT    NOT NULL DEFAULT 'ollama',
+    base_url              TEXT    NOT NULL DEFAULT '',
+    model                 TEXT    NOT NULL DEFAULT '',
+    enabled               INTEGER NOT NULL DEFAULT 1,
+    use_for_cleanup       INTEGER NOT NULL DEFAULT 1,
+    use_for_transcription INTEGER NOT NULL DEFAULT 0,
+    api_key_set           INTEGER NOT NULL DEFAULT 0
+);
+"#;
+
 /// Ordered migration list: (version, sql).
-const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001), (2, MIGRATION_002)];
+const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001), (2, MIGRATION_002), (3, MIGRATION_003)];
 
 /// Run all pending migrations against the given connection.
 ///
@@ -142,5 +160,25 @@ mod tests {
         // Running a second time must not fail (columns already exist but
         // the migration runner skips already-applied versions).
         run_migrations(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_migration_003_creates_providers_table() {
+        let conn = migrated();
+        conn.execute_batch(
+            "SELECT id, name, provider_type, base_url, model, \
+             enabled, use_for_cleanup, use_for_transcription, api_key_set \
+             FROM providers LIMIT 1",
+        )
+        .expect("migration 003 must have created the providers table with all columns");
+    }
+
+    #[test]
+    fn test_migration_003_providers_empty_on_fresh_db() {
+        let conn = migrated();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM providers", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0, "providers table should have no seed rows");
     }
 }

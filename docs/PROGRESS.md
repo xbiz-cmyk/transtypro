@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 4 Local Transcription — IMPLEMENTED on `phase/04-local-transcription`, PR open for review.
+Phase 5 Cleanup Providers — IMPLEMENTED on `phase/05-cleanup-providers`, PR open for review.
+Phase 4 Local Transcription — MERGED into main.
 Phase 3 Audio Recording — MERGED into main.
 Phase 2 Storage (Wave 2) — MERGED into main.
 Phase 0 — Bootstrap — MERGED (PR #1, commit `ad0678d`).
@@ -12,6 +13,22 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 5 Cleanup Providers: SQLite-backed provider CRUD + OS keychain key storage + Ollama/OpenAI HTTP cleanup + privacy enforcement.
+- New: migration 003 — `providers` table
+- New: `ProvidersRepository` — full CRUD + `api_key_set` flag + `list_enabled_cleanup`
+- New: `ProvidersService` — delegates to repo; API keys stored in OS keychain via `keyring = "3"`
+- New: `CleanupService` — disabled-provider guard, privacy enforcement, system prompt from active mode, Ollama + OpenAI-compatible HTTP via `ureq = "2"`
+- New: `commands/cleanup.rs` — `cleanup_text` Tauri command
+- Updated: `commands/providers.rs` — 9 real commands (`get_provider` is real SQLite; `test_provider_placeholder` delegates to `test_connection`)
+- Updated: `lib.rs` — all Phase 5 commands registered
+- Updated: `src/lib/types.ts` — `CleanupResult` interface
+- Updated: `src/lib/api.ts` — 8 new API wrappers
+- Updated: `src/pages/Providers.tsx` — full rewrite with real backend (list, add, delete, test, set-api-key modal, `api_key_set` badge)
+- Updated: `src/pages/Dictation.tsx` — cleanup provider picker + "Clean text" button; textarea shows cleaned text when available
+- 91 unit tests; all pass (21 new tests added in Phase 5)
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (91 pass), npm build, lint, quality-check.ps1
+- Handoff: `handoff/phase-05-cleanup-providers.md`
 
 Phase 4 Local Transcription: Local whisper.cpp binary invocation wired to the Dictation page.
 - New: `src-tauri/src/services/transcription.rs` — `TranscriptionService::transcribe` (path validation, Command::new, WAV cleanup) + 8 unit tests
@@ -86,14 +103,15 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 4 Local Transcription PR open against `main` — awaiting orchestrator review and merge
+- Phase 5 Cleanup Providers PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
-- No OS file picker for whisper binary or model path (Phase 5/6).
+- No OS file picker for whisper binary or model path, or provider URLs (Phase 6).
 - No model download UI (out of scope for Phase 4).
-- No cleanup providers (Phase 5) — raw transcript only, no polishing.
-- No dictation pipeline (Phase 6) — transcript not saved to history; `HistoryService::create_history_entry` is ready but not called.
+- No dictation pipeline (Phase 6) — transcript not saved to history; `HistoryService::create_history_entry` is ready but not called; cleaned text not persisted.
+- `get_status_summary` still returns static `cleanup_provider: None` — needs real lookup in Phase 6.
+- No provider enable/disable toggle in UI (update_provider command exists).
 - No global shortcut (Phase 7).
 - No text insertion (Phase 9) — Insert button remains disabled.
 - `DiagnosticsService` still returns a static report (Phase 8).
@@ -103,7 +121,7 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/04-local-transcription` PR
-2. Launch Phase 5: Cleanup Providers → `phase/05-cleanup-providers`
-3. Launch Phase 6: End-to-end dictation pipeline → `phase/06-dictation-pipeline`
-4. Phase 5/6 prep: OS file picker for whisper binary and model path
+1. Orchestrator: review and merge `phase/05-cleanup-providers` PR
+2. Launch Phase 6: End-to-end dictation pipeline → `phase/06-dictation-pipeline`
+3. Phase 6: Wire transcript + cleanup into `HistoryService::create_history_entry`
+4. Phase 6: Update `get_status_summary` to return real active cleanup provider name

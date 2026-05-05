@@ -228,3 +228,19 @@ export interface TranscriptionResult {
   /** The model path that was used. */
   model_path: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5: Cleanup — mirrors Rust CleanupResult struct
+// ---------------------------------------------------------------------------
+
+/** Result returned after a successful AI cleanup call. */
+export interface CleanupResult {
+  /** The cleaned/formatted text returned by the provider. */
+  cleaned_text: string;
+  /** ID of the provider that performed the cleanup. */
+  provider_id: string;
+  /** Display name of the provider. */
+  provider_name: string;
+  /** Wall-clock time the provider took to respond, in milliseconds. */
+  duration_ms: number;
+}

@@ -55,6 +55,14 @@ pub enum AppError {
     /// A local speech transcription operation failed.
     #[error("Transcription error: {0}")]
     TranscriptionError(String),
+
+    /// An AI provider operation failed (keyring, validation, connection).
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+
+    /// A text cleanup HTTP call failed.
+    #[error("Cleanup error: {0}")]
+    CleanupError(String),
 }
 
 /// Serialize AppError for Tauri's IPC layer.
