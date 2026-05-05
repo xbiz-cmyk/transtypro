@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Card, { CardHeader } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
@@ -7,13 +7,17 @@ import Select from "../components/ui/Select";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import {
   cancelRecording,
+  cleanupText,
   getRecordingStatus,
+  listEnabledCleanupProviders,
   listMicrophones,
   startRecording,
   stopRecording,
   transcribeAudio,
 } from "../lib/api";
 import type {
+  AiProvider,
+  CleanupResult,
   MicrophoneInfo,
   RecordingResult,
   RecordingStatus,
@@ -32,7 +36,27 @@ export default function Dictation() {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load microphone list on mount
+  // Cleanup provider state
+  const [cleanupProviders, setCleanupProviders] = useState<AiProvider[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null);
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+
+  const loadCleanupProviders = useCallback(() => {
+    listEnabledCleanupProviders()
+      .then((providers) => {
+        setCleanupProviders(providers);
+        if (providers.length > 0) {
+          setSelectedProviderId((prev) => prev ?? providers[0].id);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — cleanup providers are optional
+      });
+  }, []);
+
+  // Load microphone list and cleanup providers on mount
   useEffect(() => {
     listMicrophones()
       .then((mics) => {
@@ -43,7 +67,9 @@ export default function Dictation() {
       .catch((err: unknown) => {
         setError(String(err));
       });
-  }, []);
+
+    loadCleanupProviders();
+  }, [loadCleanupProviders]);
 
   // Clear polling interval helper
   const clearStatusInterval = () => {
@@ -69,6 +95,8 @@ export default function Dictation() {
     setError(null);
     setLastResult(null);
     setTranscriptResult(null);
+    setCleanupResult(null);
+    setCleanupError(null);
     setIsLoading(true);
     try {
       const status = await startRecording(selectedMic ?? undefined);
@@ -117,6 +145,8 @@ export default function Dictation() {
     setRecordingStatus(null);
     setLastResult(null);
     setTranscriptResult(null);
+    setCleanupResult(null);
+    setCleanupError(null);
     setError(null);
   };
 
@@ -124,6 +154,8 @@ export default function Dictation() {
     if (!lastResult) return;
     setIsTranscribing(true);
     setError(null);
+    setCleanupResult(null);
+    setCleanupError(null);
     try {
       const result = await transcribeAudio(lastResult.file_path);
       setTranscriptResult(result);
@@ -134,9 +166,25 @@ export default function Dictation() {
     }
   };
 
+  const handleCleanup = async () => {
+    if (!transcriptResult?.raw_text || !selectedProviderId) return;
+    setIsCleaning(true);
+    setCleanupError(null);
+    setCleanupResult(null);
+    try {
+      const result = await cleanupText(transcriptResult.raw_text, selectedProviderId);
+      setCleanupResult(result);
+    } catch (err: unknown) {
+      setCleanupError(String(err));
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   const handleCopy = () => {
-    if (transcriptResult?.raw_text) {
-      navigator.clipboard.writeText(transcriptResult.raw_text).catch(() => {});
+    const text = cleanupResult?.cleaned_text ?? transcriptResult?.raw_text;
+    if (text) {
+      navigator.clipboard.writeText(text).catch(() => {});
     }
   };
 
@@ -144,6 +192,8 @@ export default function Dictation() {
   const durationSec = lastResult
     ? (lastResult.duration_ms / 1000).toFixed(1)
     : null;
+
+  const displayText = cleanupResult?.cleaned_text ?? transcriptResult?.raw_text ?? "";
 
   return (
     <div id="dictation-page" className="p-8 max-w-3xl">
@@ -260,10 +310,22 @@ export default function Dictation() {
           id="result-textarea"
           readOnly
           placeholder="Transcribed text will appear here after you press Transcribe."
-          value={transcriptResult?.raw_text ?? ""}
+          value={displayText}
           rows={4}
           className="w-full cursor-default"
         />
+
+        {cleanupResult && (
+          <p className="text-xs text-(--color-text-muted) mt-1">
+            Cleaned by {cleanupResult.provider_name} in {cleanupResult.duration_ms}ms
+          </p>
+        )}
+
+        {cleanupError && (
+          <div className="mt-2">
+            <ErrorMessage message={cleanupError} />
+          </div>
+        )}
 
         {/* WAV file info and Transcribe button */}
         {lastResult && (
@@ -298,16 +360,43 @@ export default function Dictation() {
         )}
       </Card>
 
+      {/* Cleanup provider picker + Clean button */}
+      {cleanupProviders.length > 0 && transcriptResult && (
+        <Card className="mb-5">
+          <CardHeader>Clean text</CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Select
+                id="cleanup-provider-selector"
+                value={selectedProviderId ?? ""}
+                onChange={(e) => setSelectedProviderId(e.target.value)}
+                disabled={isCleaning}
+              >
+                {cleanupProviders.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              id="clean-button"
+              variant="secondary"
+              onClick={handleCleanup}
+              disabled={isCleaning || !selectedProviderId}
+            >
+              {isCleaning ? "Cleaning…" : "Clean text"}
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Action buttons */}
       <div className="flex items-center gap-3">
         <Button
           variant="secondary"
-          disabled={!transcriptResult?.raw_text}
-          title={
-            transcriptResult?.raw_text
-              ? "Copy transcript to clipboard"
-              : "No text to copy yet"
-          }
+          disabled={!displayText}
+          title={displayText ? "Copy text to clipboard" : "No text to copy yet"}
           onClick={handleCopy}
         >
           Copy
