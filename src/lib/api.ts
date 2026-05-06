@@ -9,6 +9,7 @@ import type {
   AiProvider,
   AppSettings,
   CleanupResult,
+  HistoryEntry,
   MicrophoneInfo,
   RecordingResult,
   RecordingStatus,
@@ -43,6 +44,34 @@ export async function getSettings(): Promise<AppSettings> {
 /** Persist updated application settings. */
 export async function updateSettings(settings: AppSettings): Promise<void> {
   return invoke<void>("update_settings", { settings });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: History
+// ---------------------------------------------------------------------------
+
+/** Return all history entries, newest first. */
+export async function listHistory(): Promise<HistoryEntry[]> {
+  return invoke<HistoryEntry[]>("list_history");
+}
+
+/** Delete a single history entry by ID. */
+export async function deleteHistoryEntry(id: string): Promise<void> {
+  return invoke<void>("delete_history_entry", { id });
+}
+
+/** Delete all history entries. */
+export async function clearHistory(): Promise<void> {
+  return invoke<void>("clear_history");
+}
+
+/** Save a dictation result to history and return the created entry. */
+export async function createHistoryEntry(params: {
+  rawText: string;
+  cleanedText: string;
+  modeUsed: string;
+}): Promise<HistoryEntry> {
+  return invoke<HistoryEntry>("create_history_entry", params);
 }
 
 // ---------------------------------------------------------------------------

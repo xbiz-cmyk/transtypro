@@ -1,56 +1,83 @@
+import { useEffect, useState } from "react";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorMessage from "../components/ui/ErrorMessage";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
-
-// MOCK: history entries — replace with real backend data in Phase 2
-// TODO: wire to backend — useHistoryStore when list_history command is available
-const MOCK_ENTRIES = [
-  {
-    id: "entry-001",
-    raw_text: "Hey can you send me the report by end of week",
-    cleaned_text:
-      "Hi, could you please send me the report by end of the week?",
-    mode_used: "Email",
-    timestamp: "2026-04-29T10:00:00Z",
-    was_inserted: false,
-  },
-  {
-    id: "entry-002",
-    raw_text: "git commit dash m feat add history page",
-    cleaned_text: 'git commit -m "feat: add history page"',
-    mode_used: "Developer",
-    timestamp: "2026-04-29T11:00:00Z",
-    was_inserted: true,
-  },
-  {
-    id: "entry-003",
-    raw_text: "schedule a meeting for tomorrow at 2pm",
-    cleaned_text: "Schedule a meeting for tomorrow at 2 PM.",
-    mode_used: "Smart",
-    timestamp: "2026-04-29T12:00:00Z",
-    was_inserted: false,
-  },
-];
+import { clearHistory, deleteHistoryEntry, listHistory } from "../lib/api";
+import type { HistoryEntry } from "../lib/types";
 
 function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleString();
 }
 
 export default function History() {
-  const entries = MOCK_ENTRIES;
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    listHistory()
+      .then((data) => setEntries(data))
+      .catch((err: unknown) => setError(String(err)))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteHistoryEntry(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setDeleteErrors((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (err: unknown) {
+      setDeleteErrors((prev) => ({ ...prev, [id]: String(err) }));
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await clearHistory();
+      setEntries([]);
+      setDeleteErrors({});
+    } catch (err: unknown) {
+      setError(String(err));
+    }
+  };
+
+  const handleCopy = (entry: HistoryEntry) => {
+    const text = entry.cleaned_text || entry.raw_text;
+    navigator.clipboard.writeText(text).catch(() => {});
+  };
 
   return (
     <div id="history-page" className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-semibold text-(--color-text-primary) mb-1">
-        History
-      </h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-semibold text-(--color-text-primary)">
+          History
+        </h1>
+        {entries.length > 0 && (
+          <Button variant="danger" onClick={handleClearAll}>
+            Clear all
+          </Button>
+        )}
+      </div>
       <p className="text-sm text-(--color-text-secondary) mb-8">
         Your past dictation sessions.
       </p>
 
-      {/* Filter bar */}
+      {error && (
+        <div className="mb-5">
+          <ErrorMessage message={error} />
+        </div>
+      )}
+
+      {/* Filter bar — cosmetic only in Phase 6 */}
       <Card className="mb-5">
         <div className="flex items-center gap-3 flex-wrap">
           <Input
@@ -76,7 +103,11 @@ export default function History() {
       </Card>
 
       {/* Entry list */}
-      {entries.length === 0 ? (
+      {isLoading ? (
+        <p className="text-sm text-(--color-text-muted) italic">
+          Loading history…
+        </p>
+      ) : entries.length === 0 ? (
         <EmptyState
           icon="📋"
           heading="No history yet"
@@ -84,7 +115,6 @@ export default function History() {
         />
       ) : (
         <div className="space-y-3">
-          {/* MOCK: rendered from MOCK_ENTRIES above */}
           {entries.map((entry) => (
             <Card key={entry.id}>
               <div className="flex items-start justify-between gap-4">
@@ -106,13 +136,26 @@ export default function History() {
                       Raw: {entry.raw_text}
                     </p>
                   )}
+                  {deleteErrors[entry.id] && (
+                    <p className="text-xs text-(--color-status-error) mt-1">
+                      {deleteErrors[entry.id]}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     className="text-xs text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors"
                     title="Copy to clipboard"
+                    onClick={() => handleCopy(entry)}
                   >
                     Copy
+                  </button>
+                  <button
+                    className="text-xs text-(--color-status-error) hover:opacity-75 transition-opacity"
+                    title="Delete entry"
+                    onClick={() => handleDelete(entry.id)}
+                  >
+                    Delete
                   </button>
                 </div>
               </div>

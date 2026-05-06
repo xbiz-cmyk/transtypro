@@ -2,7 +2,6 @@
 
 ## Backlog
 
-- [ ] Phase 6 end-to-end dictation pipeline
 - [ ] Phase 7 global shortcut and context
 - [ ] Phase 8 privacy/diagnostics/retention
 - [ ] Phase 9 voice inbox
@@ -18,7 +17,7 @@ None.
 
 ## Review
 
-- [ ] Phase 5 cleanup providers — branch `phase/05-cleanup-providers`, PR open, awaiting orchestrator review
+- [ ] Phase 6 dictation pipeline — branch `phase/06-dictation-pipeline`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -29,6 +28,7 @@ None.
 - [x] QA setup — merged into main
 - [x] Phase 3 audio recording — merged into main
 - [x] Phase 4 local transcription — merged into main
+- [x] Phase 5 cleanup providers — merged into main
 
 ## Blockers
 
