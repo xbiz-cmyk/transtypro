@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 5 Cleanup Providers — IMPLEMENTED on `phase/05-cleanup-providers`, PR open for review.
+Phase 6 Dictation Pipeline — IMPLEMENTED on `phase/06-dictation-pipeline`, PR open for review.
+Phase 5 Cleanup Providers — MERGED into main.
 Phase 4 Local Transcription — MERGED into main.
 Phase 3 Audio Recording — MERGED into main.
 Phase 2 Storage (Wave 2) — MERGED into main.
@@ -13,6 +14,18 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 6 Dictation Pipeline: End-to-end history persistence and live status summary.
+- New: `create_history_entry` Tauri command — saves dictation result to SQLite history
+- Updated: `get_status_summary` — reads real DB values (privacy mode, transcription ready, cleanup provider, active mode, history count)
+- New: `build_status_summary` helper — extracted for testability, bypasses Tauri State
+- Updated: `src/lib/api.ts` — 4 new history wrappers: `listHistory`, `deleteHistoryEntry`, `clearHistory`, `createHistoryEntry`
+- Updated: `src/pages/History.tsx` — removed `MOCK_ENTRIES`; real backend with loading/error/delete/clear states
+- Updated: `src/pages/Dictation.tsx` — Save as note enabled; fetches `active_mode` from settings
+- Updated: `src/pages/Home.tsx` — removed stale "Recording available in Phase 3" text
+- 9 new unit tests (100 total); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (100/100), npm lint, npm build, quality-check.ps1
+- Handoff: `handoff/phase-06-dictation-pipeline.md`
 
 Phase 5 Cleanup Providers: SQLite-backed provider CRUD + OS keychain key storage + Ollama/OpenAI HTTP cleanup + privacy enforcement.
 - New: migration 003 — `providers` table
@@ -103,25 +116,25 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 5 Cleanup Providers PR open against `main` — awaiting orchestrator review and merge
+- Phase 6 Dictation Pipeline PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
-- No OS file picker for whisper binary or model path, or provider URLs (Phase 6).
-- No model download UI (out of scope for Phase 4).
-- No dictation pipeline (Phase 6) — transcript not saved to history; `HistoryService::create_history_entry` is ready but not called; cleaned text not persisted.
-- `get_status_summary` still returns static `cleanup_provider: None` — needs real lookup in Phase 6.
-- No provider enable/disable toggle in UI (update_provider command exists).
+- No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
+- No model download UI (out of scope).
 - No global shortcut (Phase 7).
-- No text insertion (Phase 9) — Insert button remains disabled.
+- No text insertion (Phase 9) — Insert button remains disabled; `was_inserted` always `false`.
+- No clipboard paste simulation (Phase 9).
 - `DiagnosticsService` still returns a static report (Phase 8).
-- History list is empty until the dictation pipeline creates entries.
-- Retention policy is stored but not enforced (Phase 8).
-- WAV cleanup runs only on transcription success when `audio_history_enabled = false`; broader date-based retention not yet enforced.
+- `history_count` in `get_status_summary` uses `list_history().len()` — O(n); Phase 8 can optimize.
+- Date-based history retention policy stored but not enforced (Phase 8).
+- WAV retention sweep still limited to transcription-time cleanup; broader date-based retention not enforced (Phase 8).
+- No search/filter backend for History page.
+- No confirmation dialog before "Clear all" in History page.
+- No provider enable/disable toggle in UI (update_provider command exists).
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/05-cleanup-providers` PR
-2. Launch Phase 6: End-to-end dictation pipeline → `phase/06-dictation-pipeline`
-3. Phase 6: Wire transcript + cleanup into `HistoryService::create_history_entry`
-4. Phase 6: Update `get_status_summary` to return real active cleanup provider name
+1. Orchestrator: review and merge `phase/06-dictation-pipeline` PR
+2. Launch Phase 7: Global shortcut and active app context
+3. Launch Phase 9 (after Phase 7): Text insertion into active app (`was_inserted = true`)

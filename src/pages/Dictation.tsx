@@ -8,7 +8,9 @@ import ErrorMessage from "../components/ui/ErrorMessage";
 import {
   cancelRecording,
   cleanupText,
+  createHistoryEntry,
   getRecordingStatus,
+  getSettings,
   listEnabledCleanupProviders,
   listMicrophones,
   startRecording,
@@ -43,6 +45,11 @@ export default function Dictation() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
 
+  // Save as note state
+  const [activeMode, setActiveMode] = useState<string>("Smart Mode");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
+
   const loadCleanupProviders = useCallback(() => {
     listEnabledCleanupProviders()
       .then((providers) => {
@@ -56,7 +63,7 @@ export default function Dictation() {
       });
   }, []);
 
-  // Load microphone list and cleanup providers on mount
+  // Load microphone list, cleanup providers, and active mode on mount
   useEffect(() => {
     listMicrophones()
       .then((mics) => {
@@ -69,6 +76,12 @@ export default function Dictation() {
       });
 
     loadCleanupProviders();
+
+    getSettings()
+      .then((s) => setActiveMode(s.active_mode))
+      .catch(() => {
+        // Non-fatal — fall back to default mode name
+      });
   }, [loadCleanupProviders]);
 
   // Clear polling interval helper
@@ -97,6 +110,7 @@ export default function Dictation() {
     setTranscriptResult(null);
     setCleanupResult(null);
     setCleanupError(null);
+    setNoteSaved(false);
     setIsLoading(true);
     try {
       const status = await startRecording(selectedMic ?? undefined);
@@ -147,6 +161,7 @@ export default function Dictation() {
     setTranscriptResult(null);
     setCleanupResult(null);
     setCleanupError(null);
+    setNoteSaved(false);
     setError(null);
   };
 
@@ -188,12 +203,36 @@ export default function Dictation() {
     }
   };
 
+  const handleSaveNote = async () => {
+    if (!transcriptResult) return;
+    setIsSavingNote(true);
+    setError(null);
+    try {
+      await createHistoryEntry({
+        rawText: transcriptResult.raw_text,
+        cleanedText: cleanupResult?.cleaned_text ?? transcriptResult.raw_text,
+        modeUsed: activeMode,
+      });
+      setNoteSaved(true);
+    } catch (err: unknown) {
+      setError(String(err));
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
   const levelPercent = Math.min((recordingStatus?.level_rms ?? 0) * 100, 100);
   const durationSec = lastResult
     ? (lastResult.duration_ms / 1000).toFixed(1)
     : null;
 
   const displayText = cleanupResult?.cleaned_text ?? transcriptResult?.raw_text ?? "";
+
+  const saveNoteLabel = isSavingNote
+    ? "Saving…"
+    : noteSaved
+      ? "Saved ✓"
+      : "Save as note";
 
   return (
     <div id="dictation-page" className="p-8 max-w-3xl">
@@ -404,12 +443,17 @@ export default function Dictation() {
         <Button
           variant="secondary"
           disabled
-          title="Requires text insertion setup — Phase 6"
+          title="Requires text insertion — Phase 9"
         >
           Insert
         </Button>
-        <Button variant="ghost" disabled title="No text to save yet">
-          Save as note
+        <Button
+          variant="ghost"
+          disabled={!transcriptResult || isSavingNote || noteSaved}
+          title={transcriptResult ? "Save this session to history" : "Transcribe first to save"}
+          onClick={handleSaveNote}
+        >
+          {saveNoteLabel}
         </Button>
       </div>
     </div>

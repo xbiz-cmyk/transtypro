@@ -67,6 +67,8 @@ pub fn run() {
             commands::history::get_history_entry,
             commands::history::delete_history_entry,
             commands::history::clear_history,
+            // Phase 6 — history creation
+            commands::history::create_history_entry,
             // Phase 2 — privacy
             commands::privacy::get_privacy_status,
             commands::privacy::enforce_privacy_preview,

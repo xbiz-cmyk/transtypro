@@ -115,9 +115,6 @@ export default function Home() {
             </Link>{" "}
             to record your first session.
           </p>
-          <p className="text-xs text-(--color-text-muted) mt-1">
-            Recording available in Phase 3
-          </p>
         </Card>
       </div>
 
