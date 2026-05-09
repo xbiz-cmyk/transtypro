@@ -45,15 +45,19 @@ pub fn run() {
             });
 
             // Phase 7: Register global shortcut CommandOrControl+Shift+Space
-            let shortcut_handle = app.handle().clone();
             match "CommandOrControl+Shift+Space".parse::<tauri_plugin_global_shortcut::Shortcut>() {
                 Ok(shortcut) => {
                     if let Err(e) = app.handle().global_shortcut().on_shortcut(
                         shortcut,
-                        move |_app, _shortcut, event| {
+                        move |app_handle, _shortcut, event| {
                             if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed
                             {
-                                shortcut_handle.emit("dictation-shortcut-pressed", ()).ok();
+                                if let Some(window) = app_handle.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                                let _ = app_handle.emit("dictation-shortcut-pressed", ());
                             }
                         },
                     ) {

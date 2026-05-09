@@ -36,12 +36,13 @@
 
 **What happens on press:**
 1. Rust handler receives `ShortcutState::Pressed`
-2. `app_handle.emit("dictation-shortcut-pressed", ())` fires
-3. `ShortcutHandler` (TypeScript, inside `<BrowserRouter>`) receives event
-4. `openOverlay()` sets `overlayOpen = true`
-5. `navigate("/dictation")` switches page
-6. `FloatingOverlay` renders (overlayOpen is true)
-7. Dictation page is shown
+2. If the `"main"` webview window exists: `unminimize()`, `show()`, `set_focus()` (all errors silently ignored)
+3. `app_handle.emit("dictation-shortcut-pressed", ())` fires
+4. `ShortcutHandler` (TypeScript, inside `<BrowserRouter>`) receives event
+5. `openOverlay()` sets `overlayOpen = true`
+6. `navigate("/dictation")` switches page
+7. `FloatingOverlay` renders (overlayOpen is true)
+8. Dictation page is shown
 
 **What does NOT happen on press (by design):**
 - Recording does not auto-start
@@ -71,14 +72,18 @@ Plugin initialized in `lib.rs` builder chain:
 
 Shortcut registered in the `.setup()` closure:
 ```rust
-let shortcut_handle = app.handle().clone();
 match "CommandOrControl+Shift+Space".parse::<tauri_plugin_global_shortcut::Shortcut>() {
     Ok(shortcut) => {
         if let Err(e) = app.handle().global_shortcut().on_shortcut(
             shortcut,
-            move |_app, _shortcut, event| {
+            move |app_handle, _shortcut, event| {
                 if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                    shortcut_handle.emit("dictation-shortcut-pressed", ()).ok();
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app_handle.emit("dictation-shortcut-pressed", ());
                 }
             },
         ) {
@@ -131,13 +136,15 @@ This is the approved graceful-degradation behavior.
 
 1. Run `npm run tauri dev`
 2. App opens normally — no crash, no error dialog
-3. Press `Ctrl+Shift+Space` while the app is in the background
-4. **Expected:** App window comes to foreground, `FloatingOverlay` appears, page navigates to `/dictation`
-5. Click the `✕` button on the overlay — **Expected:** overlay closes (uses `closeOverlay`, not `toggleOverlay`)
-6. Click "Go to Dictation →" link on the overlay — **Expected:** overlay closes, `/dictation` page is shown
-7. Press `Ctrl+Shift+Space` again — **Expected:** overlay re-opens, navigates to `/dictation`
-8. Open Settings page — **Expected:** shortcut shows as `CommandOrControl+Shift+Space` with text "Shortcut rebinding coming in a future release." (no Phase 7 placeholder)
-9. Verify microphone, record, transcribe, cleanup all still work as before
+3. Switch focus to another app (e.g. Notepad, browser)
+4. Press `Ctrl+Shift+Space` while transtypro is in the background
+5. **Expected:** transtypro window is unminimized, shown, and focused; `FloatingOverlay` appears; page navigates to `/dictation`
+6. Click the `✕` button on the overlay — **Expected:** overlay closes (uses `closeOverlay`, not `toggleOverlay`)
+7. Click "Go to Dictation →" link on the overlay — **Expected:** overlay closes, `/dictation` page is shown
+8. Minimize transtypro, switch to another app, press `Ctrl+Shift+Space` — **Expected:** transtypro unminimizes and comes to foreground
+9. Press `Ctrl+Shift+Space` again — **Expected:** overlay re-opens, navigates to `/dictation`
+10. Open Settings page — **Expected:** shortcut shows as `CommandOrControl+Shift+Space` with text "Shortcut rebinding coming in a future release." (no Phase 7 placeholder)
+11. Verify microphone, record, transcribe, cleanup all still work as before
 
 ### macOS verification
 Deferred — Windows-only QA performed for this phase. macOS testing should be done before main merge.
