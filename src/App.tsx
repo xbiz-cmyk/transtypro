@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import FloatingOverlay from "./components/FloatingOverlay";
+import ShortcutHandler from "./components/ShortcutHandler";
 import Home from "./pages/Home";
 import Dictation from "./pages/Dictation";
 import History from "./pages/History";
@@ -41,6 +42,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ShortcutHandler />
       <div id="app-shell" className="min-h-screen bg-(--color-surface-base)">
         {/* Sidebar */}
         <Sidebar />

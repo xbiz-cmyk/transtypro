@@ -2,7 +2,6 @@
 
 ## Backlog
 
-- [ ] Phase 7 global shortcut and context
 - [ ] Phase 8 privacy/diagnostics/retention
 - [ ] Phase 9 voice inbox
 - [ ] Phase 10 packaging
@@ -17,7 +16,7 @@ None.
 
 ## Review
 
-- [ ] Phase 6 dictation pipeline — branch `phase/06-dictation-pipeline`, PR open, awaiting orchestrator review
+- [ ] Phase 7 global shortcut overlay — branch `phase/07-global-shortcut-overlay`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -29,6 +28,7 @@ None.
 - [x] Phase 3 audio recording — merged into main
 - [x] Phase 4 local transcription — merged into main
 - [x] Phase 5 cleanup providers — merged into main
+- [x] Phase 6 dictation pipeline — merged into main
 
 ## Blockers
 

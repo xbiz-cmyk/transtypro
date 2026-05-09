@@ -82,7 +82,7 @@ export default function Settings() {
               CommandOrControl+Shift+Space
             </div>
             <p className="text-xs text-(--color-text-muted)">
-              Shortcut configuration — Phase 7
+              Shortcut rebinding coming in a future release.
             </p>
           </div>
         </div>
