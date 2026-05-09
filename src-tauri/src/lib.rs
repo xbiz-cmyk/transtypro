@@ -12,12 +12,15 @@ pub mod utils;
 
 use std::sync::{Arc, Mutex};
 
+use tauri::Emitter;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
@@ -40,6 +43,31 @@ pub fn run() {
                 sample_rate: Arc::new(Mutex::new(44100)),
                 channels: Arc::new(Mutex::new(1)),
             });
+
+            // Phase 7: Register global shortcut CommandOrControl+Shift+Space
+            match "CommandOrControl+Shift+Space".parse::<tauri_plugin_global_shortcut::Shortcut>() {
+                Ok(shortcut) => {
+                    if let Err(e) = app.handle().global_shortcut().on_shortcut(
+                        shortcut,
+                        move |app_handle, _shortcut, event| {
+                            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed
+                            {
+                                if let Some(window) = app_handle.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                                let _ = app_handle.emit("dictation-shortcut-pressed", ());
+                            }
+                        },
+                    ) {
+                        eprintln!("[phase7] global shortcut registration failed: {e}");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[phase7] failed to parse shortcut string: {e}");
+                }
+            }
 
             Ok(())
         })

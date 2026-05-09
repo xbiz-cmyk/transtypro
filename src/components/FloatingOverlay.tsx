@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 import { useUiStore } from "../stores/uiStore";
 
 export default function FloatingOverlay() {
-  const { overlayOpen, activeMode, toggleOverlay } = useUiStore();
+  const { overlayOpen, activeMode, closeOverlay } = useUiStore();
 
   if (!overlayOpen) return null;
 
@@ -26,7 +27,7 @@ export default function FloatingOverlay() {
 
         {/* Close / dismiss button */}
         <button
-          onClick={toggleOverlay}
+          onClick={closeOverlay}
           className="text-(--color-text-muted) hover:text-(--color-text-primary) transition-colors p-1 rounded"
           title="Dismiss overlay"
         >
@@ -34,9 +35,13 @@ export default function FloatingOverlay() {
         </button>
       </div>
 
-      <p className="text-center text-xs text-(--color-text-muted) mt-2">
-        Dictation not yet active — Phase 6
-      </p>
+      <Link
+        to="/dictation"
+        onClick={closeOverlay}
+        className="block text-center text-xs text-(--color-accent) hover:underline mt-2"
+      >
+        Go to Dictation →
+      </Link>
     </div>
   );
 }

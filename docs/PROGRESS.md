@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 6 Dictation Pipeline — IMPLEMENTED on `phase/06-dictation-pipeline`, PR open for review.
+Phase 7 Global Shortcut — IMPLEMENTED on `phase/07-global-shortcut-overlay`, PR open for review.
+Phase 6 Dictation Pipeline — MERGED into main.
 Phase 5 Cleanup Providers — MERGED into main.
 Phase 4 Local Transcription — MERGED into main.
 Phase 3 Audio Recording — MERGED into main.
@@ -14,6 +15,18 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 7 Global Shortcut: System-wide `CommandOrControl+Shift+Space` shortcut that opens the floating overlay and navigates to /dictation.
+- New: `tauri-plugin-global-shortcut = "2"` Cargo dependency
+- New: `global-shortcut:allow-register` capability permission
+- Updated: `lib.rs` — plugin init (`Builder::new().build()`) + shortcut registration in setup; graceful failure via `eprintln!` (not panic)
+- Updated: `src/stores/uiStore.ts` — added `openOverlay()` and `closeOverlay()` actions
+- New: `src/components/ShortcutHandler.tsx` — null-rendering component inside BrowserRouter; listens for `"dictation-shortcut-pressed"`, calls `openOverlay()`, navigates to `/dictation`
+- Updated: `src/App.tsx` — `<ShortcutHandler />` mounted as first child inside `<BrowserRouter>`
+- Updated: `src/components/FloatingOverlay.tsx` — dismiss uses `closeOverlay()`; "Go to Dictation →" link replaces stale Phase 6 text
+- Updated: `src/pages/Settings.tsx` — removed "Phase 7" placeholder text
+- All 100 existing Rust tests pass; cargo fmt, clippy, npm lint, npm build, quality-check all pass
+- Handoff: `handoff/phase-07-global-shortcut-overlay.md`
 
 Phase 6 Dictation Pipeline: End-to-end history persistence and live status summary.
 - New: `create_history_entry` Tauri command — saves dictation result to SQLite history
@@ -116,13 +129,13 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 6 Dictation Pipeline PR open against `main` — awaiting orchestrator review and merge
+- Phase 7 Global Shortcut PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
 - No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
 - No model download UI (out of scope).
-- No global shortcut (Phase 7).
+- Global shortcut registered but no shortcut rebinding UI (Phase 8+).
 - No text insertion (Phase 9) — Insert button remains disabled; `was_inserted` always `false`.
 - No clipboard paste simulation (Phase 9).
 - `DiagnosticsService` still returns a static report (Phase 8).
