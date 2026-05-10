@@ -7,6 +7,7 @@
 /// Phase 3 adds AudioService and AudioState for microphone recording.
 /// Phase 4 adds TranscriptionService for local whisper.cpp execution.
 /// Phase 5 adds ProvidersService and CleanupService for AI text cleanup.
+/// Phase 8 adds RetentionService and rewrites DiagnosticsService with real checks.
 use crate::errors::AppError;
 
 pub mod audio;
@@ -16,6 +17,7 @@ pub mod history;
 pub mod modes;
 pub mod privacy;
 pub mod providers;
+pub mod retention;
 pub mod settings;
 pub mod transcription;
 pub mod vocabulary;
@@ -27,6 +29,7 @@ pub use history::HistoryService;
 pub use modes::ModesService;
 pub use privacy::PrivacyService;
 pub use providers::ProvidersService;
+pub use retention::RetentionService;
 pub use settings::SettingsService;
 pub use transcription::TranscriptionService;
 pub use vocabulary::VocabularyService;

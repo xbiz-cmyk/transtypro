@@ -1,19 +1,117 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Card, { CardHeader } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import Toggle from "../components/ui/Toggle";
+import {
+  getSettings,
+  updateSettings,
+  clearHistory,
+  applyRetentionPolicy,
+} from "../lib/api";
+import type { AppSettings, RetentionResult } from "../lib/types";
 
 export default function Settings() {
-  // TODO: wire to useSettingsStore when get_settings command is available in Phase 2
+  // Base settings loaded from backend — preserved on save for fields not shown here.
+  const [loadedSettings, setLoadedSettings] = useState<AppSettings | null>(null);
+
+  // Editable fields — hydrated from backend on mount.
   const [theme, setTheme] = useState("dark");
   const [language, setLanguage] = useState("en");
-  const [defaultMode, setDefaultMode] = useState("Smart");
-  const [localOnly, setLocalOnly] = useState(true);
+  const [defaultMode, setDefaultMode] = useState("smart");
+  const [localOnly, setLocalOnly] = useState(false);
   const [retentionDays, setRetentionDays] = useState("30");
   const [audioHistory, setAudioHistory] = useState(false);
   const [clipboardRestore, setClipboardRestore] = useState(false);
+
+  // Settings load / save state.
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Retention cleanup state.
+  const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<RetentionResult | null>(null);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSettings()
+      .then((s) => {
+        setLoadedSettings(s);
+        setTheme(s.theme);
+        setDefaultMode(s.active_mode);
+        setLocalOnly(s.local_only_mode);
+        setRetentionDays(String(s.retention_days));
+        setAudioHistory(s.audio_history_enabled);
+        setClipboardRestore(s.clipboard_restore_enabled);
+      })
+      .catch(() => {
+        // Non-fatal: form stays at defaults; user can still save.
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+    try {
+      // Merge locally-edited fields over the loaded base settings so that
+      // whisper_binary_path, whisper_model_path, and other unseen fields are preserved.
+      const base: AppSettings = loadedSettings ?? {
+        active_mode: "smart",
+        local_only_mode: false,
+        theme: "dark",
+        retention_days: 30,
+        audio_history_enabled: false,
+        clipboard_restore_enabled: false,
+        whisper_binary_path: null,
+        whisper_model_path: null,
+      };
+      await updateSettings({
+        ...base,
+        active_mode: defaultMode,
+        local_only_mode: localOnly,
+        theme,
+        retention_days: Math.max(0, parseInt(retentionDays, 10) || 0),
+        audio_history_enabled: audioHistory,
+        clipboard_restore_enabled: clipboardRestore,
+      });
+      setSaveMessage("Settings saved.");
+    } catch (e) {
+      setSaveError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClearHistory() {
+    if (!window.confirm("Delete all history entries? This cannot be undone.")) {
+      return;
+    }
+    try {
+      await clearHistory();
+      setSaveMessage("History cleared.");
+    } catch (e) {
+      setSaveError(String(e));
+    }
+  }
+
+  async function handleRetentionCleanup() {
+    setCleanupRunning(true);
+    setCleanupResult(null);
+    setCleanupError(null);
+    try {
+      const result = await applyRetentionPolicy();
+      setCleanupResult(result);
+    } catch (e) {
+      setCleanupError(String(e));
+    } finally {
+      setCleanupRunning(false);
+    }
+  }
 
   return (
     <div id="settings-page" className="p-8 max-w-2xl">
@@ -24,6 +122,10 @@ export default function Settings() {
         Configure transtypro to match your workflow.
       </p>
 
+      {loading && (
+        <p className="text-sm text-(--color-text-muted) mb-4">Loading settings…</p>
+      )}
+
       {/* General */}
       <Card className="mb-5">
         <CardHeader>General</CardHeader>
@@ -33,7 +135,6 @@ export default function Settings() {
             label="Theme"
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            helperText="Theme switching — Phase 2"
           >
             <option value="dark">Dark</option>
             <option value="light">Light</option>
@@ -64,11 +165,11 @@ export default function Settings() {
             value={defaultMode}
             onChange={(e) => setDefaultMode(e.target.value)}
           >
-            <option value="Smart">Smart</option>
-            <option value="Raw">Raw</option>
-            <option value="Clean">Clean</option>
-            <option value="Email">Email</option>
-            <option value="Developer">Developer</option>
+            <option value="smart">Smart</option>
+            <option value="raw">Raw</option>
+            <option value="clean">Clean</option>
+            <option value="email">Email</option>
+            <option value="developer">Developer</option>
           </Select>
 
           <div className="flex flex-col gap-1">
@@ -83,6 +184,8 @@ export default function Settings() {
             </div>
             <p className="text-xs text-(--color-text-muted)">
               Shortcut rebinding coming in a future release.
+              Note: Fn-only shortcuts are unsupported — they are handled at the
+              hardware/firmware level before the OS sees them.
             </p>
           </div>
         </div>
@@ -141,32 +244,70 @@ export default function Settings() {
               id="db-path-display"
               className="bg-(--color-surface-base) border border-(--color-border-subtle) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-muted) font-mono truncate"
             >
-              ~/.local/share/transtypro/transtypro.db
+              Stored in your OS app data directory
             </div>
-            <p className="text-xs text-(--color-text-muted)">
-              Real path available — Phase 2
-            </p>
           </div>
 
           <Button
             variant="danger"
             size="sm"
-            disabled
-            title="Clear history — Phase 2"
+            onClick={handleClearHistory}
           >
             Clear all history
           </Button>
+
+          {/* Retention cleanup */}
+          <div className="border-t border-(--color-border-subtle) pt-4">
+            <p className="text-sm font-medium text-(--color-text-secondary) mb-2">
+              Storage cleanup
+            </p>
+            <p className="text-xs text-(--color-text-muted) mb-3">
+              Delete history entries and audio files that exceed the configured
+              retention period.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={cleanupRunning}
+              onClick={handleRetentionCleanup}
+            >
+              {cleanupRunning ? "Running…" : "Run retention cleanup"}
+            </Button>
+            {cleanupResult && (
+              <p className="text-xs text-(--color-status-success) mt-2">
+                Deleted {cleanupResult.deleted_history_count} history{" "}
+                {cleanupResult.deleted_history_count === 1 ? "entry" : "entries"} and{" "}
+                {cleanupResult.deleted_wav_count} audio{" "}
+                {cleanupResult.deleted_wav_count === 1 ? "file" : "files"}.
+              </p>
+            )}
+            {cleanupError && (
+              <p className="text-xs text-(--color-status-error) mt-2">
+                Cleanup failed: {cleanupError}
+              </p>
+            )}
+          </div>
         </div>
       </Card>
+
+      {/* Feedback messages */}
+      {saveMessage && (
+        <p className="text-sm text-(--color-status-success) mb-4">{saveMessage}</p>
+      )}
+      {saveError && (
+        <p className="text-sm text-(--color-status-error) mb-4">
+          Save failed: {saveError}
+        </p>
+      )}
 
       {/* Save */}
       <div className="flex justify-end">
         <Button
           variant="primary"
-          disabled
-          title="Settings persistence — Phase 2"
+          disabled={saving}
+          onClick={handleSave}
         >
-          Save settings
+          {saving ? "Saving…" : "Save settings"}
         </Button>
       </div>
     </div>

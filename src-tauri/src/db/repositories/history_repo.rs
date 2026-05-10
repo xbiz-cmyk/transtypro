@@ -96,6 +96,25 @@ impl<'a> HistoryRepository<'a> {
             .map_err(|e| AppError::StorageError(e.to_string()))?;
         Ok(())
     }
+
+    /// Deletes history entries older than `days` days using the `timestamp` column.
+    ///
+    /// Returns the number of rows deleted.
+    /// If `days == 0` returns `Ok(0)` immediately — zero means keep forever.
+    pub fn delete_older_than(&self, days: u32) -> Result<u32, AppError> {
+        if days == 0 {
+            return Ok(0);
+        }
+        let offset = format!("-{days} days");
+        let rows = self
+            .conn
+            .execute(
+                "DELETE FROM history WHERE datetime(timestamp) < datetime('now', ?1)",
+                rusqlite::params![offset],
+            )
+            .map_err(|e| AppError::StorageError(e.to_string()))?;
+        Ok(rows as u32)
+    }
 }
 
 #[cfg(test)]
@@ -178,5 +197,39 @@ mod tests {
         repo.create(&entry("06")).unwrap();
         repo.clear().unwrap();
         assert!(repo.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_delete_older_than_zero_keeps_all() {
+        let conn = setup();
+        let repo = HistoryRepository::new(&conn);
+        // Insert an entry with a very old timestamp.
+        let mut e = entry("07");
+        e.timestamp = "2000-01-01T00:00:00Z".to_string();
+        repo.create(&e).unwrap();
+        // days = 0 means keep forever → must delete nothing.
+        let deleted = repo.delete_older_than(0).unwrap();
+        assert_eq!(deleted, 0);
+        assert_eq!(repo.list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_delete_older_than_removes_old_keeps_recent() {
+        let conn = setup();
+        let repo = HistoryRepository::new(&conn);
+        // Old entry: year 2000 — definitely older than any sensible retention window.
+        let mut old = entry("08");
+        old.timestamp = "2000-06-15T12:00:00Z".to_string();
+        repo.create(&old).unwrap();
+        // Recent entry: far future — will never be deleted.
+        let mut recent = entry("09");
+        recent.timestamp = "2099-12-31T23:59:59Z".to_string();
+        repo.create(&recent).unwrap();
+        // Delete entries older than 30 days.
+        let deleted = repo.delete_older_than(30).unwrap();
+        assert_eq!(deleted, 1, "only the old entry should be deleted");
+        let remaining = repo.list().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].id, "09", "recent entry must survive");
     }
 }

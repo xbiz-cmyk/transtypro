@@ -230,6 +230,18 @@ export interface TranscriptionResult {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 8: Retention — mirrors Rust RetentionResult struct
+// ---------------------------------------------------------------------------
+
+/** Result returned after a manual retention cleanup run. */
+export interface RetentionResult {
+  /** Number of history rows deleted. */
+  deleted_history_count: number;
+  /** Number of WAV files deleted from the audio directory. */
+  deleted_wav_count: number;
+}
+
+// ---------------------------------------------------------------------------
 // Phase 5: Cleanup — mirrors Rust CleanupResult struct
 // ---------------------------------------------------------------------------
 

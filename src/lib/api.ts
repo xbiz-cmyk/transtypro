@@ -9,10 +9,13 @@ import type {
   AiProvider,
   AppSettings,
   CleanupResult,
+  DiagnosticReport,
   HistoryEntry,
   MicrophoneInfo,
+  PrivacySummary,
   RecordingResult,
   RecordingStatus,
+  RetentionResult,
   StatusSummary,
   TranscriptionResult,
 } from "./types";
@@ -167,6 +170,25 @@ export async function setProviderApiKey(id: string, apiKey: string): Promise<voi
 /** List all enabled providers configured for text cleanup. */
 export async function listEnabledCleanupProviders(): Promise<AiProvider[]> {
   return invoke<AiProvider[]>("list_enabled_cleanup_providers");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8: Privacy status, diagnostics, retention
+// ---------------------------------------------------------------------------
+
+/** Return the current privacy status derived from persisted settings. */
+export async function getPrivacyStatus(): Promise<PrivacySummary> {
+  return invoke<PrivacySummary>("get_privacy_status");
+}
+
+/** Run all diagnostic checks and return the full report. */
+export async function runDiagnostics(): Promise<DiagnosticReport> {
+  return invoke<DiagnosticReport>("run_diagnostics");
+}
+
+/** Apply the configured retention policy and return deleted counts. */
+export async function applyRetentionPolicy(): Promise<RetentionResult> {
+  return invoke<RetentionResult>("apply_retention_policy");
 }
 
 // ---------------------------------------------------------------------------

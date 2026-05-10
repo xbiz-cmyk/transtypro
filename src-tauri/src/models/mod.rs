@@ -139,6 +139,17 @@ pub struct TranscriptionResult {
     pub model_path: String,
 }
 
+// ─────────────────────────── Phase 8: Retention ──────────────────────────────
+
+/// Result returned after a manual or startup retention cleanup run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionResult {
+    /// Number of history rows deleted.
+    pub deleted_history_count: u32,
+    /// Number of WAV files deleted from the audio directory.
+    pub deleted_wav_count: u32,
+}
+
 // ─────────────────────────── Phase 5: Cleanup ────────────────────────────────
 
 /// Result returned after a successful AI cleanup call.

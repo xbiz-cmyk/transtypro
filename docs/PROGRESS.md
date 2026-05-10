@@ -4,6 +4,7 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
+Phase 8 Privacy/Diagnostics/Retention — IMPLEMENTED on `phase/08-privacy-diagnostics`, PR open for review.
 Phase 7 Global Shortcut — IMPLEMENTED on `phase/07-global-shortcut-overlay`, PR open for review.
 Phase 6 Dictation Pipeline — MERGED into main.
 Phase 5 Cleanup Providers — MERGED into main.
@@ -15,6 +16,24 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 8 Privacy/Diagnostics/Retention: Real backend wired to Privacy, Diagnostics, and Settings pages.
+- New: `src-tauri/src/services/retention.rs` — `RetentionService` with history + WAV cleanup (4 safety rules enforced before every deletion)
+- New: `RetentionResult { deleted_history_count, deleted_wav_count }` model
+- Updated: `src-tauri/src/db/repositories/history_repo.rs` — `delete_older_than(days)` method
+- Updated: `src-tauri/src/services/diagnostics.rs` — full rewrite with 14 real checks (backend_alive, DB reachable, migrations, microphone, whisper binary/model, providers, ollama, shortcut, audio dir, history count, audio dir size)
+- Updated: `src-tauri/src/services/mod.rs` — added `pub mod retention` + `RetentionService` re-export
+- Updated: `src-tauri/src/commands/diagnostics.rs` — replaced placeholder; added `run_diagnostics` + `apply_retention_policy`
+- Updated: `src-tauri/src/lib.rs` — registered both new commands
+- Updated: `src/lib/api.ts` — 3 new wrappers: `getPrivacyStatus`, `runDiagnostics`, `applyRetentionPolicy`
+- Updated: `src/lib/types.ts` — `RetentionResult` interface
+- Updated: `src/pages/Privacy.tsx` — removed mock, wired to `get_privacy_status`
+- Updated: `src/pages/Diagnostics.tsx` — removed mock, Run button enabled, wired to `run_diagnostics`
+- Updated: `src/pages/Settings.tsx` — wired to backend; Save/Clear/Cleanup buttons all enabled
+- Updated: `src/components/FloatingOverlay.tsx` — pulse indicator changed from red to brand blue
+- 17 new tests (117 total: 2 history_repo + 6 retention + 9 diagnostics); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (117/117), npm lint, npm build, quality-check.ps1
+- Handoff: `handoff/phase-08-privacy-diagnostics.md`
 
 Phase 7 Global Shortcut: System-wide `CommandOrControl+Shift+Space` shortcut that opens the floating overlay and navigates to /dictation.
 - New: `tauri-plugin-global-shortcut = "2"` Cargo dependency
@@ -129,25 +148,26 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
+- Phase 8 Privacy/Diagnostics/Retention PR open against `main` — awaiting orchestrator review and merge
 - Phase 7 Global Shortcut PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
 - No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
 - No model download UI (out of scope).
-- Global shortcut registered but no shortcut rebinding UI (Phase 8+).
+- Global shortcut registered but no shortcut rebinding UI (deferred to Phase 9).
 - No text insertion (Phase 9) — Insert button remains disabled; `was_inserted` always `false`.
 - No clipboard paste simulation (Phase 9).
-- `DiagnosticsService` still returns a static report (Phase 8).
-- `history_count` in `get_status_summary` uses `list_history().len()` — O(n); Phase 8 can optimize.
-- Date-based history retention policy stored but not enforced (Phase 8).
-- WAV retention sweep still limited to transcription-time cleanup; broader date-based retention not enforced (Phase 8).
+- `history_count` in `get_status_summary` uses `list_history().len()` — O(n); acceptable for now.
+- No startup auto-sweep — retention is manual only (Phase 9 can add startup sweep).
 - No search/filter backend for History page.
 - No confirmation dialog before "Clear all" in History page.
 - No provider enable/disable toggle in UI (update_provider command exists).
+- Language selector in Settings is cosmetic local state only.
+- Diagnostics export not implemented.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge `phase/06-dictation-pipeline` PR
-2. Launch Phase 7: Global shortcut and active app context
-3. Launch Phase 9 (after Phase 7): Text insertion into active app (`was_inserted = true`)
+1. Orchestrator: review and merge Phase 8 PR (`phase/08-privacy-diagnostics`)
+2. Launch Phase 9: Text insertion into active app (`was_inserted = true`), custom shortcut rebinding
+3. Phase 9: Consider adding startup auto-sweep after manual retention path is validated

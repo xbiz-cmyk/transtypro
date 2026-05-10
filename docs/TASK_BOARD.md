@@ -2,9 +2,9 @@
 
 ## Backlog
 
-- [ ] Phase 8 privacy/diagnostics/retention
-- [ ] Phase 9 voice inbox
-- [ ] Phase 10 packaging
+- [ ] Phase 9 text insertion + shortcut rebinding
+- [ ] Phase 10 voice inbox
+- [ ] Phase 11 packaging
 
 ## Planning
 
@@ -16,6 +16,7 @@ None.
 
 ## Review
 
+- [ ] Phase 8 privacy/diagnostics/retention — branch `phase/08-privacy-diagnostics`, PR open, awaiting orchestrator review
 - [ ] Phase 7 global shortcut overlay — branch `phase/07-global-shortcut-overlay`, PR open, awaiting orchestrator review
 
 ## Done
