@@ -251,6 +251,7 @@ mod tests {
             clipboard_restore_enabled: false,
             whisper_binary_path: None,
             whisper_model_path: None,
+            shortcut: "CommandOrControl+Shift+Space".to_string(),
         };
         SettingsRepository::new(&conn).upsert(&s).unwrap();
         let svc = PrivacyService::new(Arc::new(Mutex::new(conn)));

@@ -31,3 +31,5 @@ cpal = "0.15"
 hound = "3.5"
 ureq = { version = "2", features = ["json"] }
 keyring = "3"
+arboard = "3"
+enigo = "0.2"

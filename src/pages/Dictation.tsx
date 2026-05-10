@@ -11,8 +11,10 @@ import {
   createHistoryEntry,
   getRecordingStatus,
   getSettings,
+  insertText,
   listEnabledCleanupProviders,
   listMicrophones,
+  markHistoryInserted,
   startRecording,
   stopRecording,
   transcribeAudio,
@@ -49,6 +51,12 @@ export default function Dictation() {
   const [activeMode, setActiveMode] = useState<string>("Smart Mode");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  // entryId is set after a successful createHistoryEntry; used to mark as inserted.
+  const [entryId, setEntryId] = useState<string | null>(null);
+
+  // Insertion state
+  const [isInserting, setIsInserting] = useState(false);
+  const [inserted, setInserted] = useState(false);
 
   const loadCleanupProviders = useCallback(() => {
     listEnabledCleanupProviders()
@@ -111,6 +119,8 @@ export default function Dictation() {
     setCleanupResult(null);
     setCleanupError(null);
     setNoteSaved(false);
+    setEntryId(null);
+    setInserted(false);
     setIsLoading(true);
     try {
       const status = await startRecording(selectedMic ?? undefined);
@@ -162,6 +172,8 @@ export default function Dictation() {
     setCleanupResult(null);
     setCleanupError(null);
     setNoteSaved(false);
+    setEntryId(null);
+    setInserted(false);
     setError(null);
   };
 
@@ -208,11 +220,12 @@ export default function Dictation() {
     setIsSavingNote(true);
     setError(null);
     try {
-      await createHistoryEntry({
+      const entry = await createHistoryEntry({
         rawText: transcriptResult.raw_text,
         cleanedText: cleanupResult?.cleaned_text ?? transcriptResult.raw_text,
         modeUsed: activeMode,
       });
+      setEntryId(entry.id);
       setNoteSaved(true);
     } catch (err: unknown) {
       setError(String(err));
@@ -221,18 +234,50 @@ export default function Dictation() {
     }
   };
 
+  const handleInsert = async () => {
+    if (!finalText) return;
+    setIsInserting(true);
+    setError(null);
+    try {
+      const result = await insertText(finalText);
+      if (!result.success) {
+        // Paste simulation failed — text is still in clipboard, show fallback message.
+        setError(result.message);
+      } else {
+        // Mark history entry as inserted if a note was saved this session.
+        if (entryId) {
+          await markHistoryInserted(entryId).catch(() => {
+            // Non-fatal — history marking failure should not hide insert success.
+          });
+        }
+        setInserted(true);
+      }
+    } catch (err: unknown) {
+      setError(String(err));
+    } finally {
+      setIsInserting(false);
+    }
+  };
+
   const levelPercent = Math.min((recordingStatus?.level_rms ?? 0) * 100, 100);
   const durationSec = lastResult
     ? (lastResult.duration_ms / 1000).toFixed(1)
     : null;
 
-  const displayText = cleanupResult?.cleaned_text ?? transcriptResult?.raw_text ?? "";
+  const finalText = cleanupResult?.cleaned_text ?? transcriptResult?.raw_text ?? "";
+  const displayText = finalText;
 
   const saveNoteLabel = isSavingNote
     ? "Saving…"
     : noteSaved
       ? "Saved ✓"
       : "Save as note";
+
+  const insertLabel = inserted
+    ? "Inserted ✓"
+    : isInserting
+      ? "Inserting…"
+      : "Insert";
 
   return (
     <div id="dictation-page" className="p-8 max-w-3xl">
@@ -441,11 +486,19 @@ export default function Dictation() {
           Copy
         </Button>
         <Button
-          variant="secondary"
-          disabled
-          title="Requires text insertion — Phase 9"
+          id="insert-button"
+          variant="primary"
+          disabled={!finalText || isInserting || inserted}
+          title={
+            !finalText
+              ? "Transcribe first to enable insertion"
+              : inserted
+                ? "Already inserted this session"
+                : "Insert text into the previously focused application"
+          }
+          onClick={handleInsert}
         >
-          Insert
+          {insertLabel}
         </Button>
         <Button
           variant="ghost"

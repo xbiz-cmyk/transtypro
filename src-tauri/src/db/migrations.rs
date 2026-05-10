@@ -87,8 +87,20 @@ CREATE TABLE IF NOT EXISTS providers (
 );
 "#;
 
+/// Migration 004 — add shortcut column to settings.
+///
+/// Stores the user-configured global dictation shortcut string.
+/// The default fills in for all existing rows without requiring an INSERT.
+const MIGRATION_004: &str =
+    "ALTER TABLE settings ADD COLUMN shortcut TEXT NOT NULL DEFAULT 'CommandOrControl+Shift+Space'";
+
 /// Ordered migration list: (version, sql).
-const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_001), (2, MIGRATION_002), (3, MIGRATION_003)];
+const MIGRATIONS: &[(i64, &str)] = &[
+    (1, MIGRATION_001),
+    (2, MIGRATION_002),
+    (3, MIGRATION_003),
+    (4, MIGRATION_004),
+];
 
 /// Run all pending migrations against the given connection.
 ///
@@ -180,5 +192,36 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM providers", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 0, "providers table should have no seed rows");
+    }
+
+    #[test]
+    fn test_migration_004_adds_shortcut_column() {
+        let conn = migrated();
+        conn.execute_batch("SELECT shortcut FROM settings LIMIT 1")
+            .expect("migration 004 must have added the shortcut column");
+    }
+
+    #[test]
+    fn test_migration_004_default_value() {
+        let conn = migrated();
+        let shortcut: String = conn
+            .query_row("SELECT shortcut FROM settings WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .expect("settings row must exist after migrations");
+        assert_eq!(
+            shortcut, "CommandOrControl+Shift+Space",
+            "default shortcut must be CommandOrControl+Shift+Space"
+        );
+    }
+
+    #[test]
+    fn test_migration_004_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        // Shortcut column still readable
+        conn.execute_batch("SELECT shortcut FROM settings LIMIT 1")
+            .expect("re-running migrations must not corrupt shortcut column");
     }
 }

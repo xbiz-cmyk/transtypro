@@ -31,6 +31,8 @@ pub struct AppSettings {
     pub whisper_binary_path: Option<String>,
     /// Full path to the whisper.cpp model file. None if not configured.
     pub whisper_model_path: Option<String>,
+    /// Global dictation shortcut string (e.g. "CommandOrControl+Shift+Space").
+    pub shortcut: String,
 }
 
 /// A named dictation mode (Smart, Raw, Clean, Email, etc.).
@@ -137,6 +139,19 @@ pub struct TranscriptionResult {
     pub duration_ms: u64,
     /// The model path that was used for this transcription.
     pub model_path: String,
+}
+
+// ─────────────────────────── Phase 9: Insertion ──────────────────────────────
+
+/// Result returned after a text insertion attempt via clipboard paste.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InsertionResult {
+    /// Whether the paste simulation succeeded.
+    pub success: bool,
+    /// Method used: "clipboard_paste" or "clipboard_only" (paste failed).
+    pub method: String,
+    /// Human-readable status message for the frontend.
+    pub message: String,
 }
 
 // ─────────────────────────── Phase 8: Retention ──────────────────────────────

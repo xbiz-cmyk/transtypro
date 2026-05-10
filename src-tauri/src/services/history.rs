@@ -48,6 +48,15 @@ impl HistoryService {
         HistoryRepository::new(&conn).clear()
     }
 
+    /// Marks an existing history entry as having been inserted into an external app.
+    pub fn mark_inserted(&self, id: String) -> Result<(), AppError> {
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| AppError::StorageError("database lock is poisoned".into()))?;
+        HistoryRepository::new(&conn).mark_inserted(&id)
+    }
+
     /// Creates a new history entry.  Generates a UUID id and an ISO 8601 timestamp.
     /// Called internally by the dictation pipeline (Phase 6); no Tauri command exposed yet.
     pub fn create_history_entry(&self, mut entry: HistoryEntry) -> Result<HistoryEntry, AppError> {
