@@ -65,8 +65,9 @@ impl InsertionService {
         // 5. Brief pause so the target app can read the clipboard before a potential restore.
         std::thread::sleep(std::time::Duration::from_millis(150));
 
-        // 6. Restore old clipboard if enabled and a value was saved.
-        if restore_enabled {
+        // 6. Restore old clipboard only after a successful paste.
+        //    On paste failure, dictated text intentionally stays in clipboard for manual fallback.
+        if should_restore(restore_enabled, paste_succeeded) {
             if let Some(saved) = saved_clipboard {
                 match arboard::Clipboard::new() {
                     Ok(mut cb) => {
@@ -96,6 +97,13 @@ impl InsertionService {
             })
         }
     }
+}
+
+/// Returns true only when both restore is enabled AND paste succeeded.
+/// Extracted as a pure function so the decision logic can be unit-tested
+/// without triggering real clipboard or enigo calls.
+fn should_restore(restore_enabled: bool, paste_succeeded: bool) -> bool {
+    restore_enabled && paste_succeeded
 }
 
 /// Simulate Ctrl+V (Windows/Linux) or Cmd+V (macOS) using enigo.
@@ -136,7 +144,19 @@ fn simulate_paste() -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::should_restore;
     use crate::models::InsertionResult;
+
+    #[test]
+    fn test_should_restore_requires_both_enabled_and_paste_success() {
+        // Restore only when paste succeeded AND setting is on.
+        assert!(should_restore(true, true));
+        // Paste failed — keep dictated text in clipboard for manual fallback.
+        assert!(!should_restore(true, false));
+        // Restore disabled — never restore regardless of paste outcome.
+        assert!(!should_restore(false, true));
+        assert!(!should_restore(false, false));
+    }
 
     #[test]
     fn test_insertion_result_serde_success() {

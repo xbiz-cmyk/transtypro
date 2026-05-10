@@ -53,11 +53,15 @@ Enable transtypro to insert transcribed text into the previously focused applica
 
 `InsertionService::insert_text`:
 1. Reads `clipboard_restore_enabled` from settings
-2. Saves current clipboard contents if restore is enabled (non-fatal on failure)
+2. Saves current clipboard contents (non-fatal; errors treated as `None`); contents are never logged
 3. Writes new text to clipboard via `arboard`; returns `success=false` if write fails
 4. Calls `simulate_paste()`: presses Meta+v (macOS) or Ctrl+v (other platforms) via `enigo`
 5. Sleeps 150ms to allow the target app to process the paste event
-6. Optionally restores saved clipboard contents (non-fatal)
+6. Restores saved clipboard contents **only if paste succeeded AND `clipboard_restore_enabled` is true**.
+   On paste failure, dictated text intentionally remains in the clipboard so the user can paste manually.
+   This is enforced by `should_restore(restore_enabled, paste_succeeded)` — a pure function that is unit-tested.
+
+The restore decision is extracted into `fn should_restore(restore_enabled: bool, paste_succeeded: bool) -> bool` so it can be tested without triggering real clipboard or enigo operations.
 
 ### Paste simulation
 
@@ -135,10 +139,10 @@ Fn-key-only shortcuts (e.g., F5, F12) are handled at the hardware/firmware level
 | `db/migrations.rs` | `test_migration_004_adds_shortcut_column`, `test_migration_004_default_value`, `test_migration_004_idempotent` |
 | `db/repositories/settings_repo.rs` | `test_get_returns_default_shortcut`, `test_upsert_persists_custom_shortcut`, `test_upsert_preserves_whisper_paths_when_updating_shortcut` |
 | `db/repositories/history_repo.rs` | `test_mark_inserted_sets_flag`, `test_mark_inserted_not_found` |
-| `services/insertion.rs` | `test_insertion_result_success_serializes`, `test_insertion_result_failure_serializes` |
+| `services/insertion.rs` | `test_should_restore_requires_both_enabled_and_paste_success`, `test_insertion_result_serde_success`, `test_insertion_result_serde_failure` |
 | `commands/shortcut.rs` | `test_shortcut_validation_empty`, `test_shortcut_validation_too_long`, `test_shortcut_validation_accepts_default`, `test_shortcut_validation_trims_whitespace`, `test_shortcut_validation_max_length_passes` |
 
-Total: 132 tests passing (15 new tests added in Phase 9).
+Total: 133 tests passing (16 new tests added in Phase 9; 1 added in post-merge fix).
 
 ## QA checklist (manual)
 
