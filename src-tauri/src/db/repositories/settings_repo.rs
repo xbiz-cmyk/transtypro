@@ -16,7 +16,8 @@ impl<'a> SettingsRepository<'a> {
         let result = self.conn.query_row(
             "SELECT active_mode, local_only_mode, theme, retention_days,
                     audio_history_enabled, clipboard_restore_enabled,
-                    whisper_binary_path, whisper_model_path, shortcut
+                    whisper_binary_path, whisper_model_path, shortcut,
+                    shortcut_behavior
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -30,6 +31,7 @@ impl<'a> SettingsRepository<'a> {
                     whisper_binary_path: row.get(6)?,
                     whisper_model_path: row.get(7)?,
                     shortcut: row.get(8)?,
+                    shortcut_behavior: row.get(9)?,
                 })
             },
         );
@@ -46,6 +48,7 @@ impl<'a> SettingsRepository<'a> {
                 whisper_binary_path: None,
                 whisper_model_path: None,
                 shortcut: "CommandOrControl+Shift+Space".to_string(),
+                shortcut_behavior: "open_dictation".to_string(),
             }),
             Err(e) => Err(AppError::StorageError(e.to_string())),
         }
@@ -58,8 +61,9 @@ impl<'a> SettingsRepository<'a> {
                 "INSERT INTO settings (
                     id, active_mode, local_only_mode, theme,
                     retention_days, audio_history_enabled, clipboard_restore_enabled,
-                    whisper_binary_path, whisper_model_path, shortcut
-                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                    whisper_binary_path, whisper_model_path, shortcut,
+                    shortcut_behavior
+                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
                  ON CONFLICT(id) DO UPDATE SET
                     active_mode               = excluded.active_mode,
                     local_only_mode           = excluded.local_only_mode,
@@ -69,7 +73,8 @@ impl<'a> SettingsRepository<'a> {
                     clipboard_restore_enabled = excluded.clipboard_restore_enabled,
                     whisper_binary_path       = excluded.whisper_binary_path,
                     whisper_model_path        = excluded.whisper_model_path,
-                    shortcut                  = excluded.shortcut",
+                    shortcut                  = excluded.shortcut,
+                    shortcut_behavior         = excluded.shortcut_behavior",
                 rusqlite::params![
                     settings.active_mode,
                     settings.local_only_mode as i64,
@@ -80,6 +85,7 @@ impl<'a> SettingsRepository<'a> {
                     settings.whisper_binary_path,
                     settings.whisper_model_path,
                     settings.shortcut,
+                    settings.shortcut_behavior,
                 ],
             )
             .map_err(|e| AppError::StorageError(e.to_string()))?;
@@ -202,6 +208,41 @@ mod tests {
         repo.upsert(&s).unwrap();
         let s2 = repo.get().unwrap();
         assert_eq!(s2.shortcut, "CommandOrControl+Shift+D");
+    }
+
+    #[test]
+    fn test_settings_repo_shortcut_behavior_default() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let s = repo.get().unwrap();
+        assert_eq!(
+            s.shortcut_behavior, "open_dictation",
+            "default shortcut_behavior must be open_dictation"
+        );
+    }
+
+    #[test]
+    fn test_settings_repo_shortcut_behavior_round_trip() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.shortcut_behavior = "push_to_talk_toggle".to_string();
+        repo.upsert(&s).unwrap();
+        let s2 = repo.get().unwrap();
+        assert_eq!(s2.shortcut_behavior, "push_to_talk_toggle");
+    }
+
+    #[test]
+    fn test_settings_repo_shortcut_behavior_preserves_shortcut_field() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.shortcut = "CommandOrControl+Shift+D".to_string();
+        s.shortcut_behavior = "push_to_talk_toggle".to_string();
+        repo.upsert(&s).unwrap();
+        let s2 = repo.get().unwrap();
+        assert_eq!(s2.shortcut, "CommandOrControl+Shift+D");
+        assert_eq!(s2.shortcut_behavior, "push_to_talk_toggle");
     }
 
     #[test]

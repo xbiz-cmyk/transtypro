@@ -98,23 +98,28 @@ impl DiagnosticsService {
     }
 
     fn check_migrations_current(&self) -> DiagnosticCheck {
+        const EXPECTED_VERSION: i64 = 5;
         match self.db.lock() {
             Ok(conn) => {
-                let result: Result<i64, _> = conn.query_row(
-                    "SELECT COUNT(*) FROM schema_migrations WHERE version = 3",
-                    [],
-                    |r| r.get(0),
-                );
+                let result: Result<Option<i64>, _> =
+                    conn.query_row("SELECT MAX(version) FROM schema_migrations", [], |r| {
+                        r.get(0)
+                    });
                 match result {
-                    Ok(n) if n > 0 => DiagnosticCheck {
+                    Ok(Some(v)) if v >= EXPECTED_VERSION => DiagnosticCheck {
                         name: "migrations_current".to_string(),
                         status: "pass".to_string(),
-                        message: "Schema is at version 3 (current)".to_string(),
+                        message: format!("Schema is at version {v} (current)"),
                     },
-                    Ok(_) => DiagnosticCheck {
+                    Ok(Some(v)) => DiagnosticCheck {
                         name: "migrations_current".to_string(),
                         status: "warn".to_string(),
-                        message: "Migration version 3 has not been applied".to_string(),
+                        message: format!("Schema at version {v}, expected {EXPECTED_VERSION}"),
+                    },
+                    Ok(None) => DiagnosticCheck {
+                        name: "migrations_current".to_string(),
+                        status: "warn".to_string(),
+                        message: "No migrations have been applied".to_string(),
                     },
                     Err(e) => DiagnosticCheck {
                         name: "migrations_current".to_string(),
@@ -331,16 +336,31 @@ impl DiagnosticsService {
     }
 
     fn check_shortcut_configured(&self) -> DiagnosticCheck {
-        match "CommandOrControl+Shift+Space".parse::<tauri_plugin_global_shortcut::Shortcut>() {
+        // Read the configured shortcut from DB instead of hardcoding the default.
+        let shortcut_str = match self.db.lock() {
+            Ok(conn) => SettingsRepository::new(&conn)
+                .get()
+                .map(|s| s.shortcut)
+                .unwrap_or_else(|_| "CommandOrControl+Shift+Space".to_string()),
+            Err(_) => {
+                return DiagnosticCheck {
+                    name: "shortcut_configured".to_string(),
+                    status: "warn".to_string(),
+                    message: "Database lock unavailable — could not read shortcut".to_string(),
+                };
+            }
+        };
+        // The shortcut string (key name) is not a secret and is safe to include here.
+        match shortcut_str.parse::<tauri_plugin_global_shortcut::Shortcut>() {
             Ok(_) => DiagnosticCheck {
                 name: "shortcut_configured".to_string(),
                 status: "pass".to_string(),
-                message: "Global shortcut CommandOrControl+Shift+Space is valid".to_string(),
+                message: format!("Global shortcut '{shortcut_str}' is valid"),
             },
             Err(e) => DiagnosticCheck {
                 name: "shortcut_configured".to_string(),
-                status: "fail".to_string(),
-                message: format!("Shortcut parse error: {e}"),
+                status: "warn".to_string(),
+                message: format!("Shortcut '{shortcut_str}' is not parseable: {e}"),
             },
         }
     }
@@ -533,6 +553,87 @@ mod tests {
         let svc = DiagnosticsService::new(db, dir.clone());
         let report = svc.run_diagnostics().unwrap();
         assert!(!report.generated_at.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── Phase 10 diagnostics fix tests ─────────────────────────────────────
+
+    #[test]
+    fn test_diagnostics_migrations_version_5_passes() {
+        // After all migrations (including 005), MAX(version) = 5 → pass.
+        let (db, dir) = setup();
+        let svc = DiagnosticsService::new(db, dir.clone());
+        let report = svc.run_diagnostics().unwrap();
+        let check = find_check(&report, "migrations_current");
+        assert_eq!(
+            check.status, "pass",
+            "migrations_current must pass after migration 005 is applied"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_diagnostics_migrations_low_version_warns() {
+        // Insert only version 1 → MAX = 1 < 5 → warn.
+        let conn = Connection::open_in_memory().unwrap();
+        // Create schema_migrations table manually without running full migrations.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (
+                version    INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+            INSERT INTO schema_migrations (version, applied_at) VALUES (1, 'now');
+            CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY);
+            ",
+        )
+        .unwrap();
+        let db = Arc::new(Mutex::new(conn));
+        let dir = std::env::temp_dir().join(format!("tt_diag_lowver_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let svc = DiagnosticsService::new(db, dir.clone());
+        let report = svc.run_diagnostics().unwrap();
+        let check = find_check(&report, "migrations_current");
+        assert_eq!(
+            check.status, "warn",
+            "migrations_current must warn when MAX(version) < 5"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_diagnostics_shortcut_default_passes() {
+        // Default shortcut in DB is "CommandOrControl+Shift+Space" — parseable → pass.
+        let (db, dir) = setup();
+        let svc = DiagnosticsService::new(db, dir.clone());
+        let report = svc.run_diagnostics().unwrap();
+        let check = find_check(&report, "shortcut_configured");
+        assert_eq!(check.status, "pass");
+        assert!(
+            check.message.contains("CommandOrControl+Shift+Space"),
+            "message must show the actual shortcut string"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_diagnostics_shortcut_reads_configured_value() {
+        use crate::db::repositories::SettingsRepository;
+        let (db, dir) = setup();
+        // Save a custom shortcut.
+        {
+            let conn = db.lock().unwrap();
+            let mut s = SettingsRepository::new(&conn).get().unwrap();
+            s.shortcut = "CommandOrControl+Shift+D".to_string();
+            SettingsRepository::new(&conn).upsert(&s).unwrap();
+        }
+        let svc = DiagnosticsService::new(db, dir.clone());
+        let report = svc.run_diagnostics().unwrap();
+        let check = find_check(&report, "shortcut_configured");
+        assert_eq!(check.status, "pass");
+        assert!(
+            check.message.contains("CommandOrControl+Shift+D"),
+            "message must show the custom shortcut, not the hardcoded default"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

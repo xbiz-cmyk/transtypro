@@ -2,9 +2,8 @@
 
 ## Backlog
 
-- [ ] Phase 10 voice inbox / active app context
 - [ ] Phase 11 packaging
-- [ ] Fix DiagnosticsService shortcut check to read from DB (currently hardcodes default)
+- [ ] Optional: active app context capture (window title + PID) before insertion
 
 ## Planning
 
@@ -16,6 +15,7 @@ None.
 
 ## Review
 
+- [ ] Phase 10 PTT pipeline — branch `phase/10-ptt-pipeline`, PR open, awaiting orchestrator review
 - [ ] Phase 9 text insertion + shortcut rebinding — branch `phase/09-text-insertion`, PR open, awaiting orchestrator review
 
 ## Done

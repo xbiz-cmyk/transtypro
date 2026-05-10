@@ -222,3 +222,12 @@ export async function cleanupText(
 ): Promise<CleanupResult> {
   return invoke<CleanupResult>("cleanup_text", { rawText, providerId });
 }
+
+// ---------------------------------------------------------------------------
+// Phase 10: Push-to-talk pipeline
+// ---------------------------------------------------------------------------
+
+/** Cancel an in-progress PTT pipeline. */
+export async function cancelPtt(): Promise<void> {
+  return invoke<void>("cancel_ptt");
+}

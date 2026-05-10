@@ -10,11 +10,15 @@ pub mod models;
 pub mod services;
 pub mod utils;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+use crate::models::PttStatusEvent;
+use crate::services::ptt::{PttPhase, PttPipelineService, PttState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -31,7 +35,6 @@ pub fn run() {
             db::run_migrations(&conn)?;
 
             // Phase 9: Read configured shortcut from DB before wrapping in Arc<Mutex>.
-            // This avoids needing to lock the Arc just to read one field at startup.
             let shortcut_str = db::repositories::SettingsRepository::new(&conn)
                 .get()
                 .map(|s| s.shortcut)
@@ -41,32 +44,97 @@ pub fn run() {
                 db: Arc::new(Mutex::new(conn)),
             });
 
-            // Phase 3: Audio recording state (separate from DB state)
+            // Phase 3: Audio recording state (separate from DB state).
+            // Phase 10: Create the Arc fields first so PttState can share them.
             let audio_dir = data_dir.join("audio");
             std::fs::create_dir_all(&audio_dir)?;
+
+            let recording_arc: Arc<Mutex<Option<services::audio::RecordingHandle>>> =
+                Arc::new(Mutex::new(None));
+            let samples_arc: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+            let sample_rate_arc: Arc<Mutex<u32>> = Arc::new(Mutex::new(44100));
+            let channels_arc: Arc<Mutex<u16>> = Arc::new(Mutex::new(1));
+
             app.manage(services::AudioState {
-                audio_dir,
-                recording: Arc::new(Mutex::new(None)),
-                samples: Arc::new(Mutex::new(Vec::new())),
-                sample_rate: Arc::new(Mutex::new(44100)),
-                channels: Arc::new(Mutex::new(1)),
+                audio_dir: audio_dir.clone(),
+                recording: recording_arc.clone(),
+                samples: samples_arc.clone(),
+                sample_rate: sample_rate_arc.clone(),
+                channels: channels_arc.clone(),
             });
 
-            // Phase 7 / Phase 9: Register the configured global shortcut.
-            // Phase 9: shortcut_str is read from DB instead of hardcoded.
+            // Phase 10: PTT state — shares audio Arcs so the pipeline thread can
+            // reconstruct an AudioState view without touching managed AudioState type.
+            app.manage(PttState {
+                phase: Arc::new(Mutex::new(PttPhase::Idle)),
+                cancel_flag: Arc::new(AtomicBool::new(false)),
+                audio_dir: audio_dir.clone(),
+                recording: recording_arc,
+                samples: samples_arc,
+                sample_rate: sample_rate_arc,
+                channels: channels_arc,
+            });
+
+            // Phase 7 / Phase 9 / Phase 10: Register the configured global shortcut.
+            // Phase 9: shortcut string is read from DB.
+            // Phase 10: shortcut handler branches on shortcut_behavior setting.
             match shortcut_str.parse::<tauri_plugin_global_shortcut::Shortcut>() {
                 Ok(shortcut) => {
                     if let Err(e) = app.handle().global_shortcut().on_shortcut(
                         shortcut,
                         move |app_handle, _shortcut, event| {
-                            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed
-                            {
-                                if let Some(window) = app_handle.get_webview_window("main") {
-                                    let _ = window.unminimize();
-                                    let _ = window.show();
-                                    let _ = window.set_focus();
+                            let behavior = read_shortcut_behavior(app_handle);
+
+                            match event.state() {
+                                tauri_plugin_global_shortcut::ShortcutState::Pressed => {
+                                    match behavior.as_str() {
+                                        "open_dictation" => {
+                                            // Phase 7/9 behavior — unchanged.
+                                            if let Some(window) =
+                                                app_handle.get_webview_window("main")
+                                            {
+                                                let _ = window.unminimize();
+                                                let _ = window.show();
+                                                let _ = window.set_focus();
+                                            }
+                                            let _ = app_handle
+                                                .emit("dictation-shortcut-pressed", ());
+                                        }
+                                        "push_to_talk_hold" => {
+                                            // Hold mode: Pressed starts recording.
+                                            // Released is required to stop — see handoff for
+                                            // Windows caveat. If Released never fires,
+                                            // the user can also use toggle mode instead.
+                                            ptt_start(app_handle);
+                                        }
+                                        "push_to_talk_toggle" => {
+                                            // Toggle mode: Pressed toggles start/stop.
+                                            ptt_toggle(app_handle);
+                                        }
+                                        _ => {
+                                            eprintln!(
+                                                "[shortcut] unknown shortcut_behavior '{behavior}', \
+                                                 falling back to open_dictation"
+                                            );
+                                            if let Some(window) =
+                                                app_handle.get_webview_window("main")
+                                            {
+                                                let _ = window.unminimize();
+                                                let _ = window.show();
+                                                let _ = window.set_focus();
+                                            }
+                                            let _ = app_handle
+                                                .emit("dictation-shortcut-pressed", ());
+                                        }
+                                    }
                                 }
-                                let _ = app_handle.emit("dictation-shortcut-pressed", ());
+                                tauri_plugin_global_shortcut::ShortcutState::Released => {
+                                    // On Windows with RegisterHotKey, Released events do NOT
+                                    // fire. This branch is present for platforms where they do.
+                                    if behavior == "push_to_talk_hold" {
+                                        ptt_stop_and_run(app_handle);
+                                    }
+                                }
                             }
                         },
                     ) {
@@ -136,7 +204,120 @@ pub fn run() {
             commands::insertion::insert_text,
             commands::insertion::mark_history_inserted,
             commands::shortcut::update_shortcut,
+            // Phase 10 — PTT pipeline control
+            commands::ptt::cancel_ptt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ─────────────────────── PTT shortcut handler helpers ────────────────────────
+
+/// Read shortcut_behavior from the DB. Returns "open_dictation" on any error.
+fn read_shortcut_behavior(app: &tauri::AppHandle) -> String {
+    app.state::<db::AppState>()
+        .db
+        .lock()
+        .ok()
+        .and_then(|conn| db::repositories::SettingsRepository::new(&conn).get().ok())
+        .map(|s| s.shortcut_behavior)
+        .unwrap_or_else(|| "open_dictation".to_string())
+}
+
+/// Start PTT recording. CAS guard: only transitions from Idle → Recording.
+/// Spawns a thread because AudioService::start_recording is blocking.
+fn ptt_start(app: &tauri::AppHandle) {
+    let ptt = app.state::<PttState>();
+
+    // CAS: only start if currently Idle.
+    let should_start = {
+        let mut guard = ptt.phase.lock().unwrap();
+        if matches!(*guard, PttPhase::Idle) {
+            *guard = PttPhase::Recording;
+            ptt.cancel_flag.store(false, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    };
+
+    if !should_start {
+        return;
+    }
+
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let ptt = handle.state::<PttState>();
+        let audio_view = ptt.audio_state_view();
+        match services::AudioService::start_recording(None, &audio_view) {
+            Ok(_) => {
+                let _ = handle.emit(
+                    "ptt-status",
+                    PttStatusEvent {
+                        phase: "recording".to_string(),
+                        message: "Recording…".to_string(),
+                    },
+                );
+            }
+            Err(e) => {
+                ptt.set_phase(PttPhase::Idle);
+                let _ = handle.emit(
+                    "ptt-status",
+                    PttStatusEvent {
+                        phase: "error".to_string(),
+                        message: format!("Could not start recording: {e}"),
+                    },
+                );
+                if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        }
+    });
+}
+
+/// Stop recording and spawn the full PTT pipeline.
+/// Only acts if the current phase is Recording.
+fn ptt_stop_and_run(app: &tauri::AppHandle) {
+    let ptt = app.state::<PttState>();
+
+    let is_recording = {
+        let guard = ptt.phase.lock().unwrap();
+        matches!(*guard, PttPhase::Recording)
+    };
+
+    if !is_recording {
+        return;
+    }
+
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let ptt = handle.state::<PttState>();
+        let db = handle.state::<db::AppState>();
+        let svc = PttPipelineService::new(db.db.clone());
+        svc.run_pipeline(&ptt, &handle);
+    });
+}
+
+/// Toggle PTT: first press starts recording, second press stops and runs pipeline.
+/// Ignores presses while the pipeline is in any other phase (transcribing etc.).
+fn ptt_toggle(app: &tauri::AppHandle) {
+    let ptt = app.state::<PttState>();
+
+    let (is_idle, is_recording) = {
+        let guard = ptt.phase.lock().unwrap();
+        (
+            matches!(*guard, PttPhase::Idle),
+            matches!(*guard, PttPhase::Recording),
+        )
+    };
+
+    if is_idle {
+        ptt_start(app);
+    } else if is_recording {
+        ptt_stop_and_run(app);
+    }
+    // else: pipeline in progress — ignore the press
 }

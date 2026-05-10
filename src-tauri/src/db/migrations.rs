@@ -94,12 +94,22 @@ CREATE TABLE IF NOT EXISTS providers (
 const MIGRATION_004: &str =
     "ALTER TABLE settings ADD COLUMN shortcut TEXT NOT NULL DEFAULT 'CommandOrControl+Shift+Space'";
 
+/// Migration 005 — add shortcut_behavior column to settings.
+///
+/// Controls how the global shortcut triggers dictation.
+/// "open_dictation" = open the Dictation page (legacy Phase 7 behavior).
+/// "push_to_talk_hold" = hold shortcut to record, release to run pipeline.
+/// "push_to_talk_toggle" = press once to start, press again to stop and run pipeline.
+const MIGRATION_005: &str =
+    "ALTER TABLE settings ADD COLUMN shortcut_behavior TEXT NOT NULL DEFAULT 'open_dictation'";
+
 /// Ordered migration list: (version, sql).
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, MIGRATION_001),
     (2, MIGRATION_002),
     (3, MIGRATION_003),
     (4, MIGRATION_004),
+    (5, MIGRATION_005),
 ];
 
 /// Run all pending migrations against the given connection.
@@ -223,5 +233,37 @@ mod tests {
         // Shortcut column still readable
         conn.execute_batch("SELECT shortcut FROM settings LIMIT 1")
             .expect("re-running migrations must not corrupt shortcut column");
+    }
+
+    #[test]
+    fn test_migration_005_adds_shortcut_behavior_column() {
+        let conn = migrated();
+        conn.execute_batch("SELECT shortcut_behavior FROM settings LIMIT 1")
+            .expect("migration 005 must have added the shortcut_behavior column");
+    }
+
+    #[test]
+    fn test_migration_005_default_value() {
+        let conn = migrated();
+        let behavior: String = conn
+            .query_row(
+                "SELECT shortcut_behavior FROM settings WHERE id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .expect("settings row must exist after migrations");
+        assert_eq!(
+            behavior, "open_dictation",
+            "default shortcut_behavior must be open_dictation"
+        );
+    }
+
+    #[test]
+    fn test_migration_005_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        conn.execute_batch("SELECT shortcut_behavior FROM settings LIMIT 1")
+            .expect("re-running migrations must not corrupt shortcut_behavior column");
     }
 }

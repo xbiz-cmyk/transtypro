@@ -38,6 +38,9 @@ export default function Settings() {
   const [shortcutMessage, setShortcutMessage] = useState<string | null>(null);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
 
+  // Shortcut behavior state.
+  const [shortcutBehavior, setShortcutBehavior] = useState("open_dictation");
+
   // Retention cleanup state.
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<RetentionResult | null>(null);
@@ -54,6 +57,7 @@ export default function Settings() {
         setAudioHistory(s.audio_history_enabled);
         setClipboardRestore(s.clipboard_restore_enabled);
         setShortcut(s.shortcut);
+        setShortcutBehavior(s.shortcut_behavior ?? "open_dictation");
       })
       .catch(() => {
         // Non-fatal: form stays at defaults; user can still save.
@@ -78,6 +82,7 @@ export default function Settings() {
         whisper_binary_path: null,
         whisper_model_path: null,
         shortcut: "CommandOrControl+Shift+Space",
+        shortcut_behavior: "open_dictation",
       };
       await updateSettings({
         ...base,
@@ -88,6 +93,7 @@ export default function Settings() {
         audio_history_enabled: audioHistory,
         clipboard_restore_enabled: clipboardRestore,
         shortcut,
+        shortcut_behavior: shortcutBehavior,
       });
       setSaveMessage("Settings saved.");
     } catch (e) {
@@ -235,9 +241,29 @@ export default function Settings() {
             )}
             <p className="text-xs text-(--color-text-muted)">
               Note: Fn-only shortcuts are unsupported — they are handled at the
-              hardware/firmware level before the OS sees them.
+              hardware/firmware level before the OS sees them. Modifier-only shortcuts
+              (Ctrl-only, Alt-only) are also unreliable.
             </p>
           </div>
+
+          <Select
+            id="shortcut-behavior-selector"
+            label="Shortcut behavior"
+            value={shortcutBehavior}
+            onChange={(e) => setShortcutBehavior(e.target.value)}
+          >
+            <option value="open_dictation">Open Dictation page (default)</option>
+            <option value="push_to_talk_toggle">
+              Push-to-talk — press once to start, press again to stop and insert
+            </option>
+            <option value="push_to_talk_hold" disabled>
+              Push-to-talk — hold to record, release to insert (not available on Windows)
+            </option>
+          </Select>
+          <p className="text-xs text-(--color-text-muted)">
+            Push-to-talk records in the background and inserts text into the
+            active application without switching to transtypro.
+          </p>
         </div>
       </Card>
 
