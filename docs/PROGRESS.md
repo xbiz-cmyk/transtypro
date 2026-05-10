@@ -5,7 +5,7 @@ Use this file to keep long-running agent work stable across sessions.
 ## Current phase
 
 Phase 8 Privacy/Diagnostics/Retention — IMPLEMENTED on `phase/08-privacy-diagnostics`, PR open for review.
-Phase 7 Global Shortcut — IMPLEMENTED on `phase/07-global-shortcut-overlay`, PR open for review.
+Phase 7 Global Shortcut — MERGED into main.
 Phase 6 Dictation Pipeline — MERGED into main.
 Phase 5 Cleanup Providers — MERGED into main.
 Phase 4 Local Transcription — MERGED into main.
@@ -149,7 +149,6 @@ Phase 0: Project skeleton created and merged into `main`.
 ## Current orchestrator status
 
 - Phase 8 Privacy/Diagnostics/Retention PR open against `main` — awaiting orchestrator review and merge
-- Phase 7 Global Shortcut PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 

@@ -48,10 +48,13 @@ Created `src-tauri/src/services/retention.rs`:
 
 **Safety rules enforced in code before every file deletion:**
 1. `path.starts_with(&audio_dir)` — skip and warn if outside audio directory
-2. `metadata.is_file()` — skip directories and symlinks
-3. `extension == "wav"` (case-sensitive) — skip non-WAV files
-4. Per-file errors are non-fatal — `eprintln!` and continue
-5. `audio_dir` is the Tauri-managed `data_dir/audio` directory
+2. `std::fs::symlink_metadata(&path)` is used (does NOT follow symlinks); if `file_type().is_symlink()` → skip and warn
+3. `metadata.is_file()` — skip directories after symlink check
+4. `extension == "wav"` (case-sensitive) — skip non-WAV files
+5. Per-file errors are non-fatal — `eprintln!` and continue
+6. `audio_dir` is the Tauri-managed `data_dir/audio` directory
+
+Note: symlink tests are not included in the unit-test suite because Windows symlink creation requires elevated privileges and is unreliable in CI. The symlink guard is code-enforced via `symlink_metadata()` + `is_symlink()` check.
 
 **`apply_all()`** — calls both methods and returns `RetentionResult`
 

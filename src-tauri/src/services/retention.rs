@@ -88,8 +88,9 @@ impl RetentionService {
                 continue;
             }
 
-            // Safety rule 2: must be a regular file (not a directory or symlink).
-            let metadata = match std::fs::metadata(&path) {
+            // Safety rule 2: must be a regular file — never a directory or symlink.
+            // symlink_metadata() does NOT follow symlinks, so is_symlink() is reliable.
+            let metadata = match std::fs::symlink_metadata(&path) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!(
@@ -99,6 +100,10 @@ impl RetentionService {
                     continue;
                 }
             };
+            if metadata.file_type().is_symlink() {
+                eprintln!("[retention] skipping symlink: {}", path.display());
+                continue;
+            }
             if !metadata.is_file() {
                 continue;
             }

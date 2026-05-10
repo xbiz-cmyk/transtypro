@@ -17,7 +17,6 @@ None.
 ## Review
 
 - [ ] Phase 8 privacy/diagnostics/retention — branch `phase/08-privacy-diagnostics`, PR open, awaiting orchestrator review
-- [ ] Phase 7 global shortcut overlay — branch `phase/07-global-shortcut-overlay`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -30,6 +29,7 @@ None.
 - [x] Phase 4 local transcription — merged into main
 - [x] Phase 5 cleanup providers — merged into main
 - [x] Phase 6 dictation pipeline — merged into main
+- [x] Phase 7 global shortcut overlay — merged into main
 
 ## Blockers
 
