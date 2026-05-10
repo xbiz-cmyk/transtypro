@@ -112,8 +112,9 @@ pub fn run() {
             commands::providers::test_provider_placeholder,
             // Phase 5 — cleanup
             commands::cleanup::cleanup_text,
-            // Phase 2 — diagnostics (placeholder)
-            commands::diagnostics::run_diagnostics_placeholder,
+            // Phase 8 — diagnostics (real checks) and retention cleanup
+            commands::diagnostics::run_diagnostics,
+            commands::diagnostics::apply_retention_policy,
             // Phase 3 — audio recording
             commands::audio::list_microphones,
             commands::audio::start_recording,

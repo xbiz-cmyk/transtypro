@@ -1,19 +1,10 @@
+import { useState } from "react";
 import Card, { CardHeader } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
-
-// MOCK: diagnostic check items — replace with real backend data in Phase 8
-// TODO: wire to backend when run_diagnostics_placeholder command is registered in api.ts
-const MOCK_CHECK_ITEMS = [
-  { name: "Backend IPC", status: "pass", message: "ping → pong" },
-  { name: "Microphone access", status: "pending", message: "Phase 3" },
-  { name: "Transcription model", status: "pending", message: "Phase 4" },
-  { name: "Cleanup provider", status: "pending", message: "Phase 5" },
-  { name: "SQLite database", status: "pending", message: "Phase 2" },
-  { name: "Text insertion", status: "pending", message: "Phase 6" },
-  { name: "Global shortcut", status: "pending", message: "Phase 7" },
-];
+import { runDiagnostics } from "../lib/api";
+import type { DiagnosticReport } from "../lib/types";
 
 function statusBadgeVariant(
   status: string,
@@ -21,19 +12,41 @@ function statusBadgeVariant(
   if (status === "pass") return "success";
   if (status === "fail") return "danger";
   if (status === "warn") return "warning";
-  return "muted";
+  return "muted"; // "skip" and anything else
 }
 
 function statusLabel(status: string): string {
   if (status === "pass") return "Pass";
   if (status === "fail") return "Fail";
   if (status === "warn") return "Warn";
-  return "Pending";
+  if (status === "skip") return "Skip";
+  return "Unknown";
+}
+
+function formatCheckName(name: string): string {
+  return name
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 export default function Diagnostics() {
-  // TODO: wire to backend when run_diagnostics_placeholder command is available in Phase 8
-  const checks = MOCK_CHECK_ITEMS;
+  const [report, setReport] = useState<DiagnosticReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRunDiagnostics() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await runDiagnostics();
+      setReport(r);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div id="diagnostics-page" className="p-8 max-w-3xl">
@@ -45,16 +58,16 @@ export default function Diagnostics() {
           <Button
             variant="secondary"
             size="sm"
-            disabled
-            title="Run diagnostics — run_diagnostics_placeholder command — Phase 8"
+            disabled={loading}
+            onClick={handleRunDiagnostics}
           >
-            Run diagnostics
+            {loading ? "Running…" : "Run diagnostics"}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             disabled
-            title="Export diagnostics — not yet implemented"
+            title="Diagnostics export — not yet implemented"
           >
             Export
           </Button>
@@ -64,43 +77,58 @@ export default function Diagnostics() {
         System health checks and diagnostic information.
       </p>
 
-      {/* Status checks */}
-      <Card className="mb-5">
-        <CardHeader>Status checks</CardHeader>
-        <div className="space-y-2">
-          {/* MOCK: rendered from MOCK_CHECK_ITEMS above */}
-          {checks.map((check) => (
-            <div
-              key={check.name}
-              className="flex items-center justify-between py-2 border-b border-(--color-border-subtle) last:border-0"
-            >
-              <div className="flex items-center gap-3">
-                <Badge variant={statusBadgeVariant(check.status)}>
-                  {statusLabel(check.status)}
-                </Badge>
-                <span className="text-sm text-(--color-text-primary)">
-                  {check.name}
-                </span>
-              </div>
-              {check.message && (
-                <span className="text-xs text-(--color-text-muted)">
-                  {check.message}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
+      {/* Error state */}
+      {error && (
+        <Card className="mb-5">
+          <p className="text-sm text-(--color-status-error)">
+            Diagnostics failed: {error}
+          </p>
+        </Card>
+      )}
 
-      {/* Results area */}
-      <Card>
-        <CardHeader>Results</CardHeader>
-        <EmptyState
-          icon="🔧"
-          heading="No diagnostics run yet"
-          subtext="Click Run diagnostics to check your system configuration. This feature will be fully implemented in Phase 8."
-        />
-      </Card>
+      {/* Status checks — shown once a report is available */}
+      {report && (
+        <Card className="mb-5">
+          <CardHeader>Status checks</CardHeader>
+          <div className="space-y-2">
+            {report.checks.map((check) => (
+              <div
+                key={check.name}
+                className="flex items-center justify-between py-2 border-b border-(--color-border-subtle) last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <Badge variant={statusBadgeVariant(check.status)}>
+                    {statusLabel(check.status)}
+                  </Badge>
+                  <span className="text-sm text-(--color-text-primary)">
+                    {formatCheckName(check.name)}
+                  </span>
+                </div>
+                {check.message && (
+                  <span className="text-xs text-(--color-text-muted) max-w-xs text-right">
+                    {check.message}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-(--color-text-muted) mt-3">
+            Generated at: {report.generated_at}
+          </p>
+        </Card>
+      )}
+
+      {/* Empty / results area */}
+      {!report && !error && (
+        <Card>
+          <CardHeader>Results</CardHeader>
+          <EmptyState
+            icon="🔧"
+            heading="No diagnostics run yet"
+            subtext="Click Run diagnostics to check your system configuration."
+          />
+        </Card>
+      )}
     </div>
   );
 }

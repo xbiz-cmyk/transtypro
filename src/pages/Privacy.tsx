@@ -1,16 +1,8 @@
+import { useState, useEffect } from "react";
 import Card, { CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
-
-// MOCK: privacy summary — replace with real backend data in Phase 8
-// TODO: wire to backend when get_privacy_status command is registered in api.ts
-// Returns PrivacySummary (matches Rust PrivacyService::get_privacy_status)
-const MOCK_PRIVACY_SUMMARY = {
-  local_only_mode: true,
-  audio_retention_days: 0,
-  history_retention_days: 30,
-  cloud_allowed: false,
-  reason: "local-only mode enabled",
-};
+import { getPrivacyStatus } from "../lib/api";
+import type { PrivacySummary } from "../lib/types";
 
 const DATA_FLOW_ITEMS = [
   {
@@ -41,9 +33,18 @@ const DATA_FLOW_ITEMS = [
 ];
 
 export default function Privacy() {
-  // MOCK: using MOCK_PRIVACY_SUMMARY — replace with useSettingsStore / backend call in Phase 8
-  const summary = MOCK_PRIVACY_SUMMARY;
-  const isLocalOnly = summary.local_only_mode;
+  const [summary, setSummary] = useState<PrivacySummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getPrivacyStatus()
+      .then(setSummary)
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const isLocalOnly = summary?.local_only_mode ?? false;
 
   return (
     <div id="privacy-page" className="p-8 max-w-2xl">
@@ -57,45 +58,60 @@ export default function Privacy() {
       {/* Privacy status card */}
       <Card className="mb-5">
         <CardHeader>Current privacy status</CardHeader>
-        <div className="flex items-center gap-3 mb-4">
-          <span
-            className={`w-3 h-3 rounded-full ${isLocalOnly ? "bg-(--color-status-success)" : "bg-(--color-status-warning)"}`}
-          />
-          <span className="text-base font-semibold text-(--color-text-primary)">
-            {isLocalOnly ? "Local-only mode active" : "Cloud-enabled mode"}
-          </span>
-        </div>
 
-        <div className="space-y-2">
-          <StatusRow
-            label="Cloud calls blocked"
-            value={!summary.cloud_allowed ? "Yes" : "No"}
-            ok={!summary.cloud_allowed}
-          />
-          <StatusRow
-            label="Audio retention"
-            value={
-              summary.audio_retention_days === 0
-                ? "Deleted after use"
-                : `${summary.audio_retention_days} days`
-            }
-            ok={summary.audio_retention_days === 0}
-          />
-          <StatusRow
-            label="History retention"
-            value={
-              summary.history_retention_days === 0
-                ? "Forever"
-                : `${summary.history_retention_days} days`
-            }
-            ok={true}
-          />
-          {summary.reason && (
-            <p className="text-xs text-(--color-text-muted) pt-1">
-              Reason: {summary.reason}
-            </p>
-          )}
-        </div>
+        {loading && (
+          <p className="text-sm text-(--color-text-muted)">Loading privacy status…</p>
+        )}
+
+        {error && (
+          <p className="text-sm text-(--color-status-error)">
+            Failed to load privacy status: {error}
+          </p>
+        )}
+
+        {summary && (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span
+                className={`w-3 h-3 rounded-full ${isLocalOnly ? "bg-(--color-status-success)" : "bg-(--color-status-warning)"}`}
+              />
+              <span className="text-base font-semibold text-(--color-text-primary)">
+                {isLocalOnly ? "Local-only mode active" : "Cloud-enabled mode"}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <StatusRow
+                label="Cloud calls blocked"
+                value={!summary.cloud_allowed ? "Yes" : "No"}
+                ok={!summary.cloud_allowed}
+              />
+              <StatusRow
+                label="Audio retention"
+                value={
+                  summary.audio_retention_days === 0
+                    ? "Deleted after use"
+                    : `${summary.audio_retention_days} days`
+                }
+                ok={summary.audio_retention_days === 0}
+              />
+              <StatusRow
+                label="History retention"
+                value={
+                  summary.history_retention_days === 0
+                    ? "Forever"
+                    : `${summary.history_retention_days} days`
+                }
+                ok={true}
+              />
+              {summary.reason && (
+                <p className="text-xs text-(--color-text-muted) pt-1">
+                  Reason: {summary.reason}
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </Card>
 
       {/* Privacy badges */}
@@ -110,12 +126,12 @@ export default function Privacy() {
           <PrivacyBadge
             icon="🚫"
             label="No Cloud Calls"
-            active={!summary.cloud_allowed}
+            active={!(summary?.cloud_allowed ?? true)}
           />
           <PrivacyBadge
             icon="🗑️"
             label="Audio Deleted After Use"
-            active={summary.audio_retention_days === 0}
+            active={(summary?.audio_retention_days ?? 1) === 0}
           />
         </div>
       </Card>
@@ -148,27 +164,29 @@ export default function Privacy() {
       </Card>
 
       {/* Retention summary */}
-      <Card>
-        <CardHeader>Retention</CardHeader>
-        <p className="text-sm text-(--color-text-secondary)">
-          History entries are automatically deleted after{" "}
-          <span className="font-medium text-(--color-text-primary)">
-            {summary.history_retention_days === 0
-              ? "never (kept forever)"
-              : `${summary.history_retention_days} days`}
-          </span>
-          . Audio recordings are{" "}
-          <span className="font-medium text-(--color-text-primary)">
-            {summary.audio_retention_days === 0
-              ? "deleted immediately after transcription"
-              : `kept for ${summary.audio_retention_days} days`}
-          </span>
-          .
-        </p>
-        <p className="text-xs text-(--color-text-muted) mt-2">
-          Retention enforcement — Phase 8
-        </p>
-      </Card>
+      {summary && (
+        <Card>
+          <CardHeader>Retention</CardHeader>
+          <p className="text-sm text-(--color-text-secondary)">
+            History entries are automatically deleted after{" "}
+            <span className="font-medium text-(--color-text-primary)">
+              {summary.history_retention_days === 0
+                ? "never (kept forever)"
+                : `${summary.history_retention_days} days`}
+            </span>
+            . Audio recordings are{" "}
+            <span className="font-medium text-(--color-text-primary)">
+              {summary.audio_retention_days === 0
+                ? "deleted immediately after transcription"
+                : `kept for ${summary.audio_retention_days} days`}
+            </span>
+            .
+          </p>
+          <p className="text-xs text-(--color-text-muted) mt-2">
+            Use the Settings page to run manual retention cleanup.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

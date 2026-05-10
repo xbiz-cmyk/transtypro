@@ -9,10 +9,10 @@ export default function FloatingOverlay() {
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
       <div className="flex items-center gap-4 bg-(--color-surface-overlay) border border-(--color-border-default) rounded-2xl px-6 py-4 shadow-2xl min-w-72">
-        {/* Pulse indicator — visual-only, not functional */}
+        {/* Pulse indicator — signals shortcut was received, not recording active */}
         <span className="relative flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-(--color-status-error) opacity-75" />
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-(--color-status-error)" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-(--color-brand-400) opacity-75" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-(--color-brand-400)" />
         </span>
 
         {/* Mode label */}
