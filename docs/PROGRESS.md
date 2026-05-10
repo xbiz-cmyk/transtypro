@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 8 Privacy/Diagnostics/Retention — IMPLEMENTED on `phase/08-privacy-diagnostics`, PR open for review.
+Phase 9 Text Insertion and Shortcut Rebinding — IMPLEMENTED on `phase/09-text-insertion`, PR open for review.
+Phase 8 Privacy/Diagnostics/Retention — MERGED into main.
 Phase 7 Global Shortcut — MERGED into main.
 Phase 6 Dictation Pipeline — MERGED into main.
 Phase 5 Cleanup Providers — MERGED into main.
@@ -16,6 +17,27 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 9 Text Insertion and Shortcut Rebinding: Insert button wired to active app via clipboard paste simulation; shortcut rebindable at runtime.
+- New: `src-tauri/src/services/insertion.rs` — `InsertionService` (arboard clipboard write + enigo Ctrl+V/Cmd+V simulation, clipboard restore)
+- New: `src-tauri/src/commands/insertion.rs` — `insert_text` (sync, window minimize/restore) + `mark_history_inserted`
+- New: `src-tauri/src/commands/shortcut.rs` — `update_shortcut` with register-first strategy + 5 validation unit tests
+- Updated: `Cargo.toml` — `arboard = "3"`, `enigo = "0.2"`
+- Updated: migration 004 — `ALTER TABLE settings ADD COLUMN shortcut TEXT NOT NULL DEFAULT 'CommandOrControl+Shift+Space'`
+- Updated: `AppSettings` — added `shortcut: String`; added `InsertionResult { success, method, message }` model
+- Updated: `errors/mod.rs` — `InsertionError(String)` variant
+- Updated: `settings_repo` — persists/reads shortcut column
+- Updated: `history_repo` + `HistoryService` — `mark_inserted` sets `was_inserted = true`
+- Updated: `lib.rs` — reads shortcut from DB before Arc<Mutex> wrap; registers 3 new commands
+- Updated: `services/privacy.rs` — minimal forced touch: added `shortcut` field to test struct literal (required by struct completeness rule after adding field to `AppSettings`)
+- Updated: `src/lib/types.ts` — `shortcut` on `AppSettings`, new `InsertionResult` interface
+- Updated: `src/lib/api.ts` — `insertText`, `markHistoryInserted`, `updateShortcut`
+- Updated: `src/pages/Dictation.tsx` — Insert button active after transcription; `handleInsert` with paste-fail fallback; `markHistoryInserted` called only if note was saved
+- Updated: `src/pages/Settings.tsx` — editable shortcut input + Apply button with success/error feedback
+- 15 new tests (132 total); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (132/132), npm lint, npm build, quality-check.ps1
+- Known limitation: DiagnosticsService check #11 (`shortcut_configured`) still hardcodes default string; fix recommended in Phase 10
+- Handoff: `handoff/phase-09-text-insertion.md`
 
 Phase 8 Privacy/Diagnostics/Retention: Real backend wired to Privacy, Diagnostics, and Settings pages.
 - New: `src-tauri/src/services/retention.rs` — `RetentionService` with history + WAV cleanup (4 safety rules enforced before every deletion)
@@ -148,25 +170,25 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 8 Privacy/Diagnostics/Retention PR open against `main` — awaiting orchestrator review and merge
+- Phase 9 Text Insertion PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
 - No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
 - No model download UI (out of scope).
-- Global shortcut registered but no shortcut rebinding UI (deferred to Phase 9).
-- No text insertion (Phase 9) — Insert button remains disabled; `was_inserted` always `false`.
-- No clipboard paste simulation (Phase 9).
+- DiagnosticsService check #11 (`shortcut_configured`) hardcodes `"CommandOrControl+Shift+Space"` — does not reflect a custom rebind. Fix in Phase 10.
 - `history_count` in `get_status_summary` uses `list_history().len()` — O(n); acceptable for now.
-- No startup auto-sweep — retention is manual only (Phase 9 can add startup sweep).
+- No startup auto-sweep — retention is manual only.
 - No search/filter backend for History page.
 - No confirmation dialog before "Clear all" in History page.
 - No provider enable/disable toggle in UI (update_provider command exists).
 - Language selector in Settings is cosmetic local state only.
 - Diagnostics export not implemented.
+- No active app context capture (window title/process name) before insertion.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge Phase 8 PR (`phase/08-privacy-diagnostics`)
-2. Launch Phase 9: Text insertion into active app (`was_inserted = true`), custom shortcut rebinding
-3. Phase 9: Consider adding startup auto-sweep after manual retention path is validated
+1. Orchestrator: review and merge Phase 9 PR (`phase/09-text-insertion`)
+2. Fix DiagnosticsService shortcut check to read from DB instead of hardcoding default
+3. Phase 10: Active app context capture (window title + process name) before minimize/restore
+4. Phase 10: Floating overlay auto-pipeline (record → transcribe → insert in one shortcut press)

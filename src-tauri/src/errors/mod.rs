@@ -63,6 +63,10 @@ pub enum AppError {
     /// A text cleanup HTTP call failed.
     #[error("Cleanup error: {0}")]
     CleanupError(String),
+
+    /// A text insertion or clipboard paste operation failed.
+    #[error("Insertion error: {0}")]
+    InsertionError(String),
 }
 
 /// Serialize AppError for Tauri's IPC layer.

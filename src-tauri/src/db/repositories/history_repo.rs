@@ -97,6 +97,23 @@ impl<'a> HistoryRepository<'a> {
         Ok(())
     }
 
+    /// Marks a history entry as having been inserted into an external application.
+    ///
+    /// Returns `NotFound` if no row with the given id exists.
+    pub fn mark_inserted(&self, id: &str) -> Result<(), AppError> {
+        let updated = self
+            .conn
+            .execute(
+                "UPDATE history SET was_inserted = 1 WHERE id = ?1",
+                rusqlite::params![id],
+            )
+            .map_err(|e| AppError::StorageError(e.to_string()))?;
+        if updated == 0 {
+            return Err(AppError::NotFound(format!("history entry '{id}'")));
+        }
+        Ok(())
+    }
+
     /// Deletes history entries older than `days` days using the `timestamp` column.
     ///
     /// Returns the number of rows deleted.
@@ -197,6 +214,31 @@ mod tests {
         repo.create(&entry("06")).unwrap();
         repo.clear().unwrap();
         assert!(repo.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_mark_inserted_sets_flag() {
+        let conn = setup();
+        let repo = HistoryRepository::new(&conn);
+        repo.create(&entry("10")).unwrap();
+        assert!(!repo.get("10").unwrap().was_inserted);
+        repo.mark_inserted("10").unwrap();
+        assert!(
+            repo.get("10").unwrap().was_inserted,
+            "was_inserted must be true after mark_inserted"
+        );
+    }
+
+    #[test]
+    fn test_mark_inserted_not_found() {
+        let conn = setup();
+        let err = HistoryRepository::new(&conn)
+            .mark_inserted("ghost-id")
+            .unwrap_err();
+        assert!(
+            matches!(err, AppError::NotFound(_)),
+            "unknown id must return NotFound"
+        );
     }
 
     #[test]

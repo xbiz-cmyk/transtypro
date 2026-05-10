@@ -29,6 +29,14 @@ pub fn run() {
             let db_path = data_dir.join("transtypro.sqlite");
             let conn = rusqlite::Connection::open(&db_path)?;
             db::run_migrations(&conn)?;
+
+            // Phase 9: Read configured shortcut from DB before wrapping in Arc<Mutex>.
+            // This avoids needing to lock the Arc just to read one field at startup.
+            let shortcut_str = db::repositories::SettingsRepository::new(&conn)
+                .get()
+                .map(|s| s.shortcut)
+                .unwrap_or_else(|_| "CommandOrControl+Shift+Space".to_string());
+
             app.manage(db::AppState {
                 db: Arc::new(Mutex::new(conn)),
             });
@@ -44,8 +52,9 @@ pub fn run() {
                 channels: Arc::new(Mutex::new(1)),
             });
 
-            // Phase 7: Register global shortcut CommandOrControl+Shift+Space
-            match "CommandOrControl+Shift+Space".parse::<tauri_plugin_global_shortcut::Shortcut>() {
+            // Phase 7 / Phase 9: Register the configured global shortcut.
+            // Phase 9: shortcut_str is read from DB instead of hardcoded.
+            match shortcut_str.parse::<tauri_plugin_global_shortcut::Shortcut>() {
                 Ok(shortcut) => {
                     if let Err(e) = app.handle().global_shortcut().on_shortcut(
                         shortcut,
@@ -61,11 +70,11 @@ pub fn run() {
                             }
                         },
                     ) {
-                        eprintln!("[phase7] global shortcut registration failed: {e}");
+                        eprintln!("[shortcut] global shortcut registration failed: {e}");
                     }
                 }
                 Err(e) => {
-                    eprintln!("[phase7] failed to parse shortcut string: {e}");
+                    eprintln!("[shortcut] failed to parse shortcut string '{shortcut_str}': {e}");
                 }
             }
 
@@ -123,6 +132,10 @@ pub fn run() {
             commands::audio::get_recording_status,
             // Phase 4 — local transcription
             commands::transcription::transcribe_audio,
+            // Phase 9 — text insertion and shortcut rebinding
+            commands::insertion::insert_text,
+            commands::insertion::mark_history_inserted,
+            commands::shortcut::update_shortcut,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

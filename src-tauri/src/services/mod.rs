@@ -8,12 +8,12 @@
 /// Phase 4 adds TranscriptionService for local whisper.cpp execution.
 /// Phase 5 adds ProvidersService and CleanupService for AI text cleanup.
 /// Phase 8 adds RetentionService and rewrites DiagnosticsService with real checks.
-use crate::errors::AppError;
-
+/// Phase 9 adds InsertionService for clipboard paste text insertion.
 pub mod audio;
 pub mod cleanup;
 pub mod diagnostics;
 pub mod history;
+pub mod insertion;
 pub mod modes;
 pub mod privacy;
 pub mod providers;
@@ -26,6 +26,7 @@ pub use audio::{AudioService, AudioState};
 pub use cleanup::CleanupService;
 pub use diagnostics::DiagnosticsService;
 pub use history::HistoryService;
+pub use insertion::InsertionService;
 pub use modes::ModesService;
 pub use privacy::PrivacyService;
 pub use providers::ProvidersService;
@@ -33,10 +34,3 @@ pub use retention::RetentionService;
 pub use settings::SettingsService;
 pub use transcription::TranscriptionService;
 pub use vocabulary::VocabularyService;
-
-/// Placeholder for the text insertion service (Phase 6).
-pub fn insert_text(_text: &str) -> Result<(), AppError> {
-    Err(AppError::FeatureNotImplemented(
-        "text insertion starts in Phase 6".to_string(),
-    ))
-}

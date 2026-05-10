@@ -7,6 +7,7 @@ import Toggle from "../components/ui/Toggle";
 import {
   getSettings,
   updateSettings,
+  updateShortcut,
   clearHistory,
   applyRetentionPolicy,
 } from "../lib/api";
@@ -31,6 +32,12 @@ export default function Settings() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Shortcut rebinding state.
+  const [shortcut, setShortcut] = useState("CommandOrControl+Shift+Space");
+  const [shortcutSaving, setShortcutSaving] = useState(false);
+  const [shortcutMessage, setShortcutMessage] = useState<string | null>(null);
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
+
   // Retention cleanup state.
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<RetentionResult | null>(null);
@@ -46,6 +53,7 @@ export default function Settings() {
         setRetentionDays(String(s.retention_days));
         setAudioHistory(s.audio_history_enabled);
         setClipboardRestore(s.clipboard_restore_enabled);
+        setShortcut(s.shortcut);
       })
       .catch(() => {
         // Non-fatal: form stays at defaults; user can still save.
@@ -69,6 +77,7 @@ export default function Settings() {
         clipboard_restore_enabled: false,
         whisper_binary_path: null,
         whisper_model_path: null,
+        shortcut: "CommandOrControl+Shift+Space",
       };
       await updateSettings({
         ...base,
@@ -78,6 +87,7 @@ export default function Settings() {
         retention_days: Math.max(0, parseInt(retentionDays, 10) || 0),
         audio_history_enabled: audioHistory,
         clipboard_restore_enabled: clipboardRestore,
+        shortcut,
       });
       setSaveMessage("Settings saved.");
     } catch (e) {
@@ -110,6 +120,21 @@ export default function Settings() {
       setCleanupError(String(e));
     } finally {
       setCleanupRunning(false);
+    }
+  }
+
+  async function handleApplyShortcut() {
+    setShortcutSaving(true);
+    setShortcutMessage(null);
+    setShortcutError(null);
+    try {
+      const accepted = await updateShortcut(shortcut);
+      setShortcut(accepted);
+      setShortcutMessage("Shortcut applied.");
+    } catch (e) {
+      setShortcutError(String(e));
+    } finally {
+      setShortcutSaving(false);
     }
   }
 
@@ -172,18 +197,43 @@ export default function Settings() {
             <option value="developer">Developer</option>
           </Select>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-(--color-text-secondary)">
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="shortcut-input"
+              className="text-sm font-medium text-(--color-text-secondary)"
+            >
               Global shortcut
             </label>
-            <div
-              id="shortcut-display"
-              className="bg-(--color-surface-base) border border-(--color-border-subtle) rounded-(--radius-btn) px-3 py-2 text-sm text-(--color-text-muted) font-mono"
-            >
-              CommandOrControl+Shift+Space
+            <div className="flex items-center gap-2">
+              <Input
+                id="shortcut-input"
+                value={shortcut}
+                onChange={(e) => {
+                  setShortcut(e.target.value);
+                  setShortcutMessage(null);
+                  setShortcutError(null);
+                }}
+                placeholder="e.g. CommandOrControl+Shift+Space"
+                className="flex-1 font-mono"
+                disabled={shortcutSaving}
+              />
+              <Button
+                id="apply-shortcut-button"
+                variant="secondary"
+                size="sm"
+                disabled={shortcutSaving || !shortcut.trim()}
+                onClick={handleApplyShortcut}
+              >
+                {shortcutSaving ? "Applying…" : "Apply"}
+              </Button>
             </div>
+            {shortcutMessage && (
+              <p className="text-xs text-(--color-status-success)">{shortcutMessage}</p>
+            )}
+            {shortcutError && (
+              <p className="text-xs text-(--color-status-error)">{shortcutError}</p>
+            )}
             <p className="text-xs text-(--color-text-muted)">
-              Shortcut rebinding coming in a future release.
               Note: Fn-only shortcuts are unsupported — they are handled at the
               hardware/firmware level before the OS sees them.
             </p>

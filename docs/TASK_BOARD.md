@@ -2,9 +2,9 @@
 
 ## Backlog
 
-- [ ] Phase 9 text insertion + shortcut rebinding
-- [ ] Phase 10 voice inbox
+- [ ] Phase 10 voice inbox / active app context
 - [ ] Phase 11 packaging
+- [ ] Fix DiagnosticsService shortcut check to read from DB (currently hardcodes default)
 
 ## Planning
 
@@ -16,7 +16,7 @@ None.
 
 ## Review
 
-- [ ] Phase 8 privacy/diagnostics/retention — branch `phase/08-privacy-diagnostics`, PR open, awaiting orchestrator review
+- [ ] Phase 9 text insertion + shortcut rebinding — branch `phase/09-text-insertion`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -30,6 +30,7 @@ None.
 - [x] Phase 5 cleanup providers — merged into main
 - [x] Phase 6 dictation pipeline — merged into main
 - [x] Phase 7 global shortcut overlay — merged into main
+- [x] Phase 8 privacy/diagnostics/retention — merged into main
 
 ## Blockers
 

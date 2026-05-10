@@ -50,6 +50,8 @@ export interface AppSettings {
   whisper_binary_path: string | null;
   /** Full path to the whisper.cpp model file. Null if not configured. */
   whisper_model_path: string | null;
+  /** Global dictation shortcut string (e.g. "CommandOrControl+Shift+Space"). */
+  shortcut: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +241,20 @@ export interface RetentionResult {
   deleted_history_count: number;
   /** Number of WAV files deleted from the audio directory. */
   deleted_wav_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9: Insertion — mirrors Rust InsertionResult struct
+// ---------------------------------------------------------------------------
+
+/** Result returned after a text insertion attempt via clipboard paste. */
+export interface InsertionResult {
+  /** Whether the paste simulation succeeded. */
+  success: boolean;
+  /** Method used: "clipboard_paste" (success) or "clipboard_only" (paste failed). */
+  method: string;
+  /** Human-readable status message. */
+  message: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import type {
   CleanupResult,
   DiagnosticReport,
   HistoryEntry,
+  InsertionResult,
   MicrophoneInfo,
   PrivacySummary,
   RecordingResult,
@@ -189,6 +190,25 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
 /** Apply the configured retention policy and return deleted counts. */
 export async function applyRetentionPolicy(): Promise<RetentionResult> {
   return invoke<RetentionResult>("apply_retention_policy");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9: Text insertion and shortcut rebinding
+// ---------------------------------------------------------------------------
+
+/** Insert text into the previously active application via clipboard paste simulation. */
+export async function insertText(text: string): Promise<InsertionResult> {
+  return invoke<InsertionResult>("insert_text", { text });
+}
+
+/** Mark an existing history entry as having been inserted into an external application. */
+export async function markHistoryInserted(id: string): Promise<void> {
+  return invoke<void>("mark_history_inserted", { id });
+}
+
+/** Update the global dictation shortcut. Returns the accepted shortcut string. */
+export async function updateShortcut(shortcut: string): Promise<string> {
+  return invoke<string>("update_shortcut", { shortcut });
 }
 
 // ---------------------------------------------------------------------------

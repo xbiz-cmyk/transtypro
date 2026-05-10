@@ -16,7 +16,7 @@ impl<'a> SettingsRepository<'a> {
         let result = self.conn.query_row(
             "SELECT active_mode, local_only_mode, theme, retention_days,
                     audio_history_enabled, clipboard_restore_enabled,
-                    whisper_binary_path, whisper_model_path
+                    whisper_binary_path, whisper_model_path, shortcut
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -29,6 +29,7 @@ impl<'a> SettingsRepository<'a> {
                     clipboard_restore_enabled: row.get::<_, i64>(5)? != 0,
                     whisper_binary_path: row.get(6)?,
                     whisper_model_path: row.get(7)?,
+                    shortcut: row.get(8)?,
                 })
             },
         );
@@ -44,6 +45,7 @@ impl<'a> SettingsRepository<'a> {
                 clipboard_restore_enabled: false,
                 whisper_binary_path: None,
                 whisper_model_path: None,
+                shortcut: "CommandOrControl+Shift+Space".to_string(),
             }),
             Err(e) => Err(AppError::StorageError(e.to_string())),
         }
@@ -56,8 +58,8 @@ impl<'a> SettingsRepository<'a> {
                 "INSERT INTO settings (
                     id, active_mode, local_only_mode, theme,
                     retention_days, audio_history_enabled, clipboard_restore_enabled,
-                    whisper_binary_path, whisper_model_path
-                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                    whisper_binary_path, whisper_model_path, shortcut
+                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                  ON CONFLICT(id) DO UPDATE SET
                     active_mode               = excluded.active_mode,
                     local_only_mode           = excluded.local_only_mode,
@@ -66,7 +68,8 @@ impl<'a> SettingsRepository<'a> {
                     audio_history_enabled     = excluded.audio_history_enabled,
                     clipboard_restore_enabled = excluded.clipboard_restore_enabled,
                     whisper_binary_path       = excluded.whisper_binary_path,
-                    whisper_model_path        = excluded.whisper_model_path",
+                    whisper_model_path        = excluded.whisper_model_path,
+                    shortcut                  = excluded.shortcut",
                 rusqlite::params![
                     settings.active_mode,
                     settings.local_only_mode as i64,
@@ -76,6 +79,7 @@ impl<'a> SettingsRepository<'a> {
                     settings.clipboard_restore_enabled as i64,
                     settings.whisper_binary_path,
                     settings.whisper_model_path,
+                    settings.shortcut,
                 ],
             )
             .map_err(|e| AppError::StorageError(e.to_string()))?;
@@ -176,5 +180,45 @@ mod tests {
             s2.whisper_model_path.as_deref(),
             Some("/models/ggml-base.en.bin")
         );
+    }
+
+    #[test]
+    fn test_get_returns_default_shortcut() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let s = repo.get().unwrap();
+        assert_eq!(
+            s.shortcut, "CommandOrControl+Shift+Space",
+            "default shortcut must be CommandOrControl+Shift+Space"
+        );
+    }
+
+    #[test]
+    fn test_upsert_persists_custom_shortcut() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.shortcut = "CommandOrControl+Shift+D".to_string();
+        repo.upsert(&s).unwrap();
+        let s2 = repo.get().unwrap();
+        assert_eq!(s2.shortcut, "CommandOrControl+Shift+D");
+    }
+
+    #[test]
+    fn test_upsert_preserves_whisper_paths_when_updating_shortcut() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.whisper_binary_path = Some("/usr/bin/whisper".to_string());
+        s.whisper_model_path = Some("/models/base.bin".to_string());
+        repo.upsert(&s).unwrap();
+        // Now update only the shortcut
+        let mut s2 = repo.get().unwrap();
+        s2.shortcut = "CommandOrControl+Shift+X".to_string();
+        repo.upsert(&s2).unwrap();
+        let s3 = repo.get().unwrap();
+        assert_eq!(s3.whisper_binary_path.as_deref(), Some("/usr/bin/whisper"));
+        assert_eq!(s3.whisper_model_path.as_deref(), Some("/models/base.bin"));
+        assert_eq!(s3.shortcut, "CommandOrControl+Shift+X");
     }
 }

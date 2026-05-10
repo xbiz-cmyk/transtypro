@@ -13,10 +13,12 @@ pub mod audio;
 pub mod cleanup;
 pub mod diagnostics;
 pub mod history;
+pub mod insertion;
 pub mod modes;
 pub mod privacy;
 pub mod providers;
 pub mod settings;
+pub mod shortcut;
 pub mod transcription;
 pub mod vocabulary;
 
