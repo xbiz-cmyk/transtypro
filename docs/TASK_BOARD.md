@@ -16,7 +16,6 @@ None.
 ## Review
 
 - [ ] Phase 10 PTT pipeline — branch `phase/10-ptt-pipeline`, PR open, awaiting orchestrator review
-- [ ] Phase 9 text insertion + shortcut rebinding — branch `phase/09-text-insertion`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -31,6 +30,7 @@ None.
 - [x] Phase 6 dictation pipeline — merged into main
 - [x] Phase 7 global shortcut overlay — merged into main
 - [x] Phase 8 privacy/diagnostics/retention — merged into main
+- [x] Phase 9 text insertion + shortcut rebinding — merged into main
 
 ## Blockers
 

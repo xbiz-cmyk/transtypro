@@ -83,7 +83,17 @@ pub fn run() {
                     if let Err(e) = app.handle().global_shortcut().on_shortcut(
                         shortcut,
                         move |app_handle, _shortcut, event| {
-                            let behavior = read_shortcut_behavior(app_handle);
+                            let behavior = {
+                                let raw = read_shortcut_behavior(app_handle);
+                                // On Windows, RegisterHotKey never fires Released, so
+                                // push_to_talk_hold would start recording with no way to stop.
+                                // Map it to toggle mode at runtime so the shortcut stays safe.
+                                if cfg!(target_os = "windows") && raw == "push_to_talk_hold" {
+                                    "push_to_talk_toggle".to_string()
+                                } else {
+                                    raw
+                                }
+                            };
 
                             match event.state() {
                                 tauri_plugin_global_shortcut::ShortcutState::Pressed => {

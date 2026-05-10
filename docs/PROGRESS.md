@@ -5,7 +5,7 @@ Use this file to keep long-running agent work stable across sessions.
 ## Current phase
 
 Phase 10 Push-to-Talk Pipeline — IMPLEMENTED on `phase/10-ptt-pipeline`, PR open for review.
-Phase 9 Text Insertion and Shortcut Rebinding — IMPLEMENTED on `phase/09-text-insertion`, PR open for review.
+Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
 Phase 8 Privacy/Diagnostics/Retention — MERGED into main.
 Phase 7 Global Shortcut — MERGED into main.
 Phase 6 Dictation Pipeline — MERGED into main.
@@ -192,7 +192,6 @@ Phase 0: Project skeleton created and merged into `main`.
 ## Current orchestrator status
 
 - Phase 10 PTT Pipeline PR open against `main` — awaiting orchestrator review and merge
-- Phase 9 Text Insertion PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 

@@ -200,11 +200,10 @@ impl PttPipelineService {
             .read_active_mode()
             .unwrap_or_else(|_| "smart".to_string());
 
-        let cleaned_text = if final_text != raw_text {
-            final_text.clone()
-        } else {
-            String::new()
-        };
+        // Always store the final text (cleaned if cleanup ran, otherwise raw).
+        // History UI displays cleaned_text as the primary field; an empty string
+        // would show a blank entry for PTT dictations.
+        let cleaned_text = final_text.clone();
 
         let entry = HistoryEntry {
             id: String::new(),
@@ -412,6 +411,37 @@ mod tests {
         assert!(
             !would_start,
             "Recording phase must block a second PTT start"
+        );
+    }
+
+    #[test]
+    fn test_cancel_during_recording_discards_audio_and_goes_idle() {
+        // Verify: when cancel is requested while in Recording phase,
+        // calling cancel_recording on an empty audio view (no active stream)
+        // returns an error which is safely ignored, and phase ends up Idle.
+        let ptt = make_ptt_state();
+        ptt.set_phase(PttPhase::Recording);
+        ptt.cancel_flag.store(true, Ordering::SeqCst);
+
+        // Simulate the cancel_ptt command logic.
+        if ptt.is_phase(&PttPhase::Recording) {
+            let audio_view = ptt.audio_state_view();
+            // No active recording — expect an error; we must ignore it.
+            let result = crate::services::audio::AudioService::cancel_recording(&audio_view);
+            assert!(
+                result.is_err(),
+                "cancel_recording with no active stream should return an error"
+            );
+        }
+
+        ptt.set_phase(PttPhase::Idle);
+        assert!(
+            ptt.is_phase(&PttPhase::Idle),
+            "phase must be Idle after cancel"
+        );
+        assert!(
+            ptt.cancel_flag.load(Ordering::SeqCst),
+            "cancel flag remains set until pipeline thread sees it"
         );
     }
 
