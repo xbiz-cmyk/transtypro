@@ -52,6 +52,20 @@ export interface AppSettings {
   whisper_model_path: string | null;
   /** Global dictation shortcut string (e.g. "CommandOrControl+Shift+Space"). */
   shortcut: string;
+  /** Shortcut behavior: "open_dictation" | "push_to_talk_toggle" | "push_to_talk_hold" */
+  shortcut_behavior: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10: Push-to-talk pipeline — mirrors Rust PttStatusEvent struct
+// ---------------------------------------------------------------------------
+
+/** PTT pipeline status event emitted by the backend. */
+export interface PttStatusEvent {
+  /** Pipeline phase: "recording" | "transcribing" | "cleaning" | "inserting" | "done" | "idle" | "error" | "cancelled" */
+  phase: string;
+  /** Human-readable status message. Never contains user-dictated content. */
+  message: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ pub mod insertion;
 pub mod modes;
 pub mod privacy;
 pub mod providers;
+pub mod ptt;
 pub mod settings;
 pub mod shortcut;
 pub mod transcription;

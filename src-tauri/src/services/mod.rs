@@ -9,6 +9,7 @@
 /// Phase 5 adds ProvidersService and CleanupService for AI text cleanup.
 /// Phase 8 adds RetentionService and rewrites DiagnosticsService with real checks.
 /// Phase 9 adds InsertionService for clipboard paste text insertion.
+/// Phase 10 adds PttPipelineService and PttState for push-to-talk dictation.
 pub mod audio;
 pub mod cleanup;
 pub mod diagnostics;
@@ -17,6 +18,7 @@ pub mod insertion;
 pub mod modes;
 pub mod privacy;
 pub mod providers;
+pub mod ptt;
 pub mod retention;
 pub mod settings;
 pub mod transcription;
@@ -30,6 +32,7 @@ pub use insertion::InsertionService;
 pub use modes::ModesService;
 pub use privacy::PrivacyService;
 pub use providers::ProvidersService;
+pub use ptt::{PttPhase, PttPipelineService, PttState};
 pub use retention::RetentionService;
 pub use settings::SettingsService;
 pub use transcription::TranscriptionService;

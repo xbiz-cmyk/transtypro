@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 9 Text Insertion and Shortcut Rebinding — IMPLEMENTED on `phase/09-text-insertion`, PR open for review.
+Phase 10 Push-to-Talk Pipeline — IMPLEMENTED on `phase/10-ptt-pipeline`, PR open for review.
+Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
 Phase 8 Privacy/Diagnostics/Retention — MERGED into main.
 Phase 7 Global Shortcut — MERGED into main.
 Phase 6 Dictation Pipeline — MERGED into main.
@@ -17,6 +18,26 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 10 Push-to-Talk Pipeline: PTT mode added. Pressing the global shortcut starts recording in the background (no focus steal); pressing again stops and runs the full pipeline: stop → transcribe → optional cleanup → insert → save history.
+- New: `src-tauri/src/services/ptt.rs` — `PttPhase` enum, `PttState` (Tauri-managed with shared Arc audio fields), `PttPipelineService::run_pipeline()` + 8 unit tests
+- New: `src-tauri/src/commands/ptt.rs` — `cancel_ptt` Tauri command
+- New migration 005: `ALTER TABLE settings ADD COLUMN shortcut_behavior TEXT NOT NULL DEFAULT 'open_dictation'`
+- Updated: `AppSettings` — `shortcut_behavior: String` field; new `PttStatusEvent { phase, message }` model
+- Updated: `settings_repo` — persists/reads `shortcut_behavior` + 3 tests
+- Updated: `lib.rs` — shared Arc fields for audio (AudioState + PttState share same Arcs); shortcut handler branches on `shortcut_behavior`; `cancel_ptt` registered
+- Updated: `services/diagnostics.rs` — `check_migrations_current` now expects version 5; `check_shortcut_configured` reads from DB + 4 new tests
+- Updated: `services/privacy.rs` — minimal compile-only fix: `shortcut_behavior` in test struct literal
+- Updated: `src/stores/uiStore.ts` — `pttPhase`, `pttMessage`, `setPttStatus`
+- Updated: `src/components/ShortcutHandler.tsx` — `ptt-status` listener; auto-hides overlay 2 s after done
+- Updated: `src/components/FloatingOverlay.tsx` — PTT phase display with dynamic indicator color + Cancel button
+- Updated: `src/pages/Settings.tsx` — shortcut behavior dropdown (hold option disabled on Windows)
+- Updated: `src/lib/types.ts` — `AppSettings.shortcut_behavior`, `PttStatusEvent` interface
+- Updated: `src/lib/api.ts` — `cancelPtt()` wrapper
+- 19 new tests (151 total); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (151/151), npm lint, npm build
+- Windows caveat: `push_to_talk_hold` is not functional on Windows (`RegisterHotKey` fires press-only); `push_to_talk_toggle` is the working PTT mode on Windows
+- Handoff: `handoff/phase-10-ptt-pipeline.md`
 
 Phase 9 Text Insertion and Shortcut Rebinding: Insert button wired to active app via clipboard paste simulation; shortcut rebindable at runtime.
 - New: `src-tauri/src/services/insertion.rs` — `InsertionService` (arboard clipboard write + enigo Ctrl+V/Cmd+V simulation, clipboard restore)
@@ -170,13 +191,14 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 9 Text Insertion PR open against `main` — awaiting orchestrator review and merge
+- Phase 10 PTT Pipeline PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
 - No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
 - No model download UI (out of scope).
-- DiagnosticsService check #11 (`shortcut_configured`) hardcodes `"CommandOrControl+Shift+Space"` — does not reflect a custom rebind. Fix in Phase 10.
+- `push_to_talk_hold` is not functional on Windows (`RegisterHotKey` fires press-only); `push_to_talk_toggle` is the working PTT mode on Windows.
+- No audio level meter in overlay during PTT recording.
 - `history_count` in `get_status_summary` uses `list_history().len()` — O(n); acceptable for now.
 - No startup auto-sweep — retention is manual only.
 - No search/filter backend for History page.
@@ -188,7 +210,6 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge Phase 9 PR (`phase/09-text-insertion`)
-2. Fix DiagnosticsService shortcut check to read from DB instead of hardcoding default
-3. Phase 10: Active app context capture (window title + process name) before minimize/restore
-4. Phase 10: Floating overlay auto-pipeline (record → transcribe → insert in one shortcut press)
+1. Orchestrator: review and merge Phase 9 PR (`phase/09-text-insertion`) then Phase 10 PR (`phase/10-ptt-pipeline`)
+2. Phase 11: Packaging (Tauri bundler, installer, update manifest)
+3. Optional: active app context capture (window title + PID) to show in overlay during PTT

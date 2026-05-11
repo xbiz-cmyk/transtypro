@@ -33,6 +33,9 @@ pub struct AppSettings {
     pub whisper_model_path: Option<String>,
     /// Global dictation shortcut string (e.g. "CommandOrControl+Shift+Space").
     pub shortcut: String,
+    /// How the global shortcut triggers dictation.
+    /// "open_dictation" | "push_to_talk_hold" | "push_to_talk_toggle"
+    pub shortcut_behavior: String,
 }
 
 /// A named dictation mode (Smart, Raw, Clean, Email, etc.).
@@ -151,6 +154,21 @@ pub struct InsertionResult {
     /// Method used: "clipboard_paste" or "clipboard_only" (paste failed).
     pub method: String,
     /// Human-readable status message for the frontend.
+    pub message: String,
+}
+
+// ─────────────────────────── Phase 10: PTT ───────────────────────────────────
+
+/// Status event emitted by the PTT pipeline to the frontend.
+///
+/// Privacy rule: `message` must NEVER contain transcript text, clipboard
+/// contents, or any user-dictated content.  Status strings only.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PttStatusEvent {
+    /// "recording" | "transcribing" | "cleaning" | "inserting"
+    /// | "done" | "error" | "idle" | "cancelled"
+    pub phase: String,
+    /// Human-readable status string — no user content.
     pub message: String,
 }
 
