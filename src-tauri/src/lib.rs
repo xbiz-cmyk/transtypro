@@ -17,8 +17,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-use crate::models::PttStatusEvent;
-use crate::services::ptt::{PttPhase, PttPipelineService, PttState};
+use crate::services::ptt::{emit_ptt_status, PttPhase, PttPipelineService, PttState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -294,12 +293,16 @@ fn ptt_start(app: &tauri::AppHandle) {
     }
 
     // Show ptt-overlay before spawning the recording thread.
-    // The webview is already hydrated (created at startup), so PttOverlay's
-    // ptt-status listener is registered before the thread emits the first event.
     // Never call set_focus() here — the active app must keep focus.
     if let Some(overlay) = app.get_webview_window("ptt-overlay") {
         let _ = overlay.show();
     }
+
+    // Emit recording status directly to both windows immediately after show().
+    // WebView2 may throttle JS in hidden windows; emit_to by label targets each
+    // window's IPC directly, ensuring the event arrives even if the webview just
+    // resumed from a background/throttled state.
+    emit_ptt_status(app, "recording", "Recording…");
 
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -307,23 +310,13 @@ fn ptt_start(app: &tauri::AppHandle) {
         let audio_view = ptt.audio_state_view();
         match services::AudioService::start_recording(None, &audio_view) {
             Ok(_) => {
-                let _ = handle.emit(
-                    "ptt-status",
-                    PttStatusEvent {
-                        phase: "recording".to_string(),
-                        message: "Recording…".to_string(),
-                    },
-                );
+                // Re-emit recording status from the thread after start_recording
+                // completes. The pre-spawn emit already fired; this confirms state.
+                emit_ptt_status(&handle, "recording", "Recording…");
             }
             Err(e) => {
                 ptt.set_phase(PttPhase::Idle);
-                let _ = handle.emit(
-                    "ptt-status",
-                    PttStatusEvent {
-                        phase: "error".to_string(),
-                        message: format!("Could not start recording: {e}"),
-                    },
-                );
+                emit_ptt_status(&handle, "error", &format!("Could not start recording: {e}"));
                 if let Some(window) = handle.get_webview_window("main") {
                     let _ = window.unminimize();
                     let _ = window.show();

@@ -23,6 +23,25 @@ use crate::services::{
     CleanupService, HistoryService, InsertionService, ProvidersService, TranscriptionService,
 };
 
+// ─────────────────────── Status event helper ─────────────────────────────────
+
+/// Emit a PTT status event explicitly to both the main window and the ptt-overlay window.
+///
+/// Uses emit_to by window label instead of the broadcast emit() so that each
+/// window receives the event via a direct IPC path. This avoids the WebView2
+/// background-throttling issue on Windows where hidden webviews may not receive
+/// broadcast events reliably.
+///
+/// Message must contain only generic status strings — never user-dictated content.
+pub fn emit_ptt_status(app: &tauri::AppHandle, phase: &str, message: &str) {
+    let event = PttStatusEvent {
+        phase: phase.to_string(),
+        message: message.to_string(),
+    };
+    let _ = app.emit_to("main", "ptt-status", event.clone());
+    let _ = app.emit_to("ptt-overlay", "ptt-status", event);
+}
+
 // ─────────────────────────────── PTT phase ───────────────────────────────────
 
 /// Current phase of the PTT pipeline lifecycle.
@@ -130,13 +149,7 @@ impl PttPipelineService {
 
         // ── Step 2: Transcribe ──────────────────────────────────────────────
         ptt.set_phase(PttPhase::Transcribing);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "transcribing".to_string(),
-                message: "Transcribing…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "transcribing", "Transcribing…");
 
         let (binary_path, model_path) = match self.read_whisper_paths() {
             Ok(t) => t,
@@ -176,13 +189,7 @@ impl PttPipelineService {
 
         // ── Step 4: Insert ──────────────────────────────────────────────────
         ptt.set_phase(PttPhase::Inserting);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "inserting".to_string(),
-                message: "Inserting…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "inserting", "Inserting…");
 
         // Call InsertionService directly — NOT via the insert_text Tauri command.
         // The Tauri command minimizes/restores the window which is wrong for PTT
@@ -227,13 +234,7 @@ impl PttPipelineService {
 
         // ── Done ────────────────────────────────────────────────────────────
         ptt.set_phase(PttPhase::Idle);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "done".to_string(),
-                message: "Done.".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "done", "Done.");
         // Do NOT bring window to front on success — leave the user in their app.
     }
 
@@ -242,13 +243,7 @@ impl PttPipelineService {
     /// Emit error, bring window to front, reset to Idle.
     fn abort(&self, ptt: &PttState, handle: &tauri::AppHandle, message: String) {
         ptt.set_phase(PttPhase::Idle);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "error".to_string(),
-                message,
-            },
-        );
+        emit_ptt_status(handle, "error", &message);
         if let Some(window) = handle.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
@@ -260,13 +255,7 @@ impl PttPipelineService {
     fn is_cancelled(&self, ptt: &PttState, handle: &tauri::AppHandle) -> bool {
         if ptt.cancel_flag.load(Ordering::SeqCst) {
             ptt.set_phase(PttPhase::Idle);
-            let _ = handle.emit(
-                "ptt-status",
-                PttStatusEvent {
-                    phase: "cancelled".to_string(),
-                    message: "Cancelled.".to_string(),
-                },
-            );
+            emit_ptt_status(handle, "cancelled", "Cancelled.");
             true
         } else {
             false
@@ -286,13 +275,7 @@ impl PttPipelineService {
         };
 
         ptt.set_phase(PttPhase::Cleaning);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "cleaning".to_string(),
-                message: "Cleaning text…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "cleaning", "Cleaning text…");
 
         match CleanupService::new(self.db.clone()).cleanup(raw_text, &provider_id) {
             Ok(r) => Some(r.cleaned_text),

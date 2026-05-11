@@ -1,12 +1,9 @@
 /// transtypro — PTT Tauri commands (Phase 10).
 use std::sync::atomic::Ordering;
 
-use tauri::Emitter;
-
 use crate::errors::AppError;
-use crate::models::PttStatusEvent;
 use crate::services::audio::AudioService;
-use crate::services::ptt::{PttPhase, PttState};
+use crate::services::ptt::{emit_ptt_status, PttPhase, PttState};
 
 /// Cancel an active PTT pipeline.
 ///
@@ -30,12 +27,6 @@ pub fn cancel_ptt(
     }
 
     ptt_state.set_phase(PttPhase::Idle);
-    let _ = app_handle.emit(
-        "ptt-status",
-        PttStatusEvent {
-            phase: "cancelled".to_string(),
-            message: "Cancelled.".to_string(),
-        },
-    );
+    emit_ptt_status(&app_handle, "cancelled", "Cancelled.");
     Ok(())
 }

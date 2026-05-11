@@ -85,14 +85,48 @@ During the `recording` phase, the overlay shows:
 
 No words the user speaks are displayed. No partial transcript is shown. No fake recognized text is generated. The bars do not reflect audio levels. This is a future feature placeholder only.
 
+## Fix applied after initial QA (PR #17 review)
+
+### Root cause
+
+Manual QA found: overlay appeared but stayed stuck on default "Listening…" state; Cancel did not hide it.
+
+**Root cause**: On Windows, WebView2 throttles JavaScript execution in hidden/background windows. The ptt-overlay window is created hidden at startup; its `listen("ptt-status")` handler may not be registered before the first events fire. Additionally, `AppHandle::emit("ptt-status", ...)` uses `EventTarget::Any` (global broadcast), which can be subject to this throttling for hidden webviews. Using `AppHandle::emit_to(window_label, "ptt-status", ...)` targets each window's IPC channel directly, bypassing the broadcast path.
+
+A secondary issue: `handleCancel()` depended on receiving a `ptt-status: cancelled` event to hide the overlay. If that event was missed (same throttling issue), the overlay remained visible after Cancel.
+
+### Fixes applied
+
+**Fix 1 — Explicit emit_to for all ptt-status events**
+
+Added `pub fn emit_ptt_status(app, phase, message)` to `src-tauri/src/services/ptt.rs`. This helper calls `app.emit_to("main", ...)` and `app.emit_to("ptt-overlay", ...)` separately, targeting each window's IPC channel directly. All 6 emit sites in `ptt.rs`, 1 in `commands/ptt.rs`, and 2 in `lib.rs` were replaced with this helper.
+
+**Fix 2 — Pre-spawn recording emit in ptt_start()**
+
+In `lib.rs` `ptt_start()`, `emit_ptt_status(app, "recording", "Recording…")` is now called between `overlay.show()` and `std::thread::spawn`. This guarantees the overlay receives a real event in the window immediately after it is shown, before the audio thread starts.
+
+**Fix 3 — Cancel hides locally on success**
+
+`handleCancel()` now calls `await hideOverlay()` after a successful `cancelPtt()` call, without waiting for a `ptt-status` event. If `cancelPtt()` fails, it sets an error state in the overlay.
+
+**Fix 4 — Timer managed via useRef**
+
+The auto-hide timer is stored in `autoHideTimerRef`. Existing timers are cleared before a new one is set. Cleanup on unmount cancels any pending timer.
+
+**Fix 5 — Draggable overlay**
+
+The overlay body area uses `data-tauri-drag-region` on the content div (left/centre). Tauri v2 excludes interactive elements (buttons) from triggering drag, so Cancel and Dismiss remain clickable. `cursor-move` provides a visual hint. The overlay starts at bottom-centre; the user can drag it anywhere during the session (position resets on restart).
+
 ## Files changed
 
 | File | Change |
 |---|---|
 | `src-tauri/capabilities/default.json` | Added `"ptt-overlay"` to `windows` array |
-| `src-tauri/src/lib.rs` | Created `ptt-overlay` `WebviewWindowBuilder` in `setup()`; added `overlay.show()` call in `ptt_start()` before spawning the recording thread |
+| `src-tauri/src/lib.rs` | Created `ptt-overlay` `WebviewWindowBuilder` in `setup()`; `overlay.show()` + `emit_ptt_status` pre-spawn emit in `ptt_start()`; thread emits replaced with helper |
+| `src-tauri/src/services/ptt.rs` | Added `pub fn emit_ptt_status` helper; replaced all 6 `handle.emit()` calls |
+| `src-tauri/src/commands/ptt.rs` | Replaced `app_handle.emit()` with `emit_ptt_status`; removed unused imports |
 | `src/App.tsx` | Extracted `MainApp` component; `App` checks `IS_PTT_OVERLAY` constant and renders `<PttOverlay />` if true, else `<MainApp />` |
-| `src/components/PttOverlay.tsx` | **New file.** Standalone overlay component: `ptt-status` listener, animated waveform bars, phase labels, Cancel/Dismiss buttons, window hide on terminal phases |
+| `src/components/PttOverlay.tsx` | Standalone overlay component: `ptt-status` listener, animated waveform bars, phase labels; Cancel hides locally after success; timer managed via `useRef`; drag region on content area |
 
 ## Privacy and safety guarantees
 
@@ -143,6 +177,16 @@ The following tests must be verified with a real Tauri build and a configured Wh
 3. **Expected**: overlay shows error message in red indicator + text. Dismiss (✕) button visible.
 4. Press Dismiss.
 5. **Expected**: overlay hides. Main transtypro window was already brought to front by existing error handler in `ptt.rs`.
+
+### Drag overlay to new position
+
+1. When the overlay is visible (recording phase), drag it from its default bottom-centre position to another location on screen.
+2. **Expected**: overlay moves to the dragged position.
+3. Press PTT shortcut again (stop → run pipeline).
+4. **Expected**: overlay remains at the moved position during the session, transitions phase labels, then disappears after Done.
+5. **Expected**: Cancel button still clickable (not a drag trigger).
+6. **Expected**: final text still inserts into Notepad.
+7. Note: position resets to bottom-centre on next app launch.
 
 ### open_dictation regression
 
