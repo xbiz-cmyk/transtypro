@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import FloatingOverlay from "./components/FloatingOverlay";
 import ShortcutHandler from "./components/ShortcutHandler";
+import PttOverlay from "./components/PttOverlay";
 import Home from "./pages/Home";
 import Dictation from "./pages/Dictation";
 import History from "./pages/History";
@@ -17,7 +19,12 @@ import Diagnostics from "./pages/Diagnostics";
 import About from "./pages/About";
 import { getAppVersion, getStatusSummary } from "./lib/api";
 
-export default function App() {
+// Evaluated once at module load time (synchronous in Tauri v2).
+// The ptt-overlay window renders only the small feedback overlay;
+// the main window renders the full app shell unchanged.
+const IS_PTT_OVERLAY = getCurrentWindow().label === "ptt-overlay";
+
+function MainApp() {
   const [version, setVersion] = useState("...");
   const [privacyMode, setPrivacyMode] = useState("local-only");
 
@@ -70,9 +77,14 @@ export default function App() {
           </main>
         </div>
 
-        {/* Floating dictation overlay — shell only, not functional */}
+        {/* Floating dictation overlay */}
         <FloatingOverlay />
       </div>
     </BrowserRouter>
   );
+}
+
+export default function App() {
+  if (IS_PTT_OVERLAY) return <PttOverlay />;
+  return <MainApp />;
 }

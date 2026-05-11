@@ -15,7 +15,7 @@ None.
 
 ## Review
 
-- [ ] Phase 10 PTT pipeline — branch `phase/10-ptt-pipeline`, PR open, awaiting orchestrator review
+- [ ] Phase 10.1 PTT overlay window — branch `phase/10.1-ptt-overlay-window`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -31,6 +31,7 @@ None.
 - [x] Phase 7 global shortcut overlay — merged into main
 - [x] Phase 8 privacy/diagnostics/retention — merged into main
 - [x] Phase 9 text insertion + shortcut rebinding — merged into main
+- [x] Phase 10 PTT pipeline — merged into main
 
 ## Blockers
 

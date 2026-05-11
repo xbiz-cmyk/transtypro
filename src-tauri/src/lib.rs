@@ -156,6 +156,44 @@ pub fn run() {
                 }
             }
 
+            // Phase 10.1: Create the PTT feedback overlay window (hidden at startup).
+            // Pre-loading the webview ensures PttOverlay's ptt-status listener is
+            // already registered before the first PTT recording starts.
+            // Window creation failure is non-fatal — PTT still works, just without overlay.
+            match tauri::WebviewWindowBuilder::new(
+                app.handle(),
+                "ptt-overlay",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("")
+            .inner_size(320.0, 96.0)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .decorations(false)
+            .visible(false)
+            .focused(false)
+            .resizable(false)
+            .minimizable(false)
+            .maximizable(false)
+            .closable(false)
+            .build()
+            {
+                Ok(overlay) => {
+                    // Position near bottom-center of the primary monitor.
+                    if let Ok(Some(monitor)) = overlay.primary_monitor() {
+                        let scale = monitor.scale_factor();
+                        let screen_w = monitor.size().width as f64 / scale;
+                        let screen_h = monitor.size().height as f64 / scale;
+                        let x = (screen_w - 320.0) / 2.0;
+                        let y = screen_h - 96.0 - 48.0;
+                        let _ = overlay.set_position(tauri::LogicalPosition::new(x, y));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[ptt-overlay] failed to create overlay window: {e}");
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -253,6 +291,14 @@ fn ptt_start(app: &tauri::AppHandle) {
 
     if !should_start {
         return;
+    }
+
+    // Show ptt-overlay before spawning the recording thread.
+    // The webview is already hydrated (created at startup), so PttOverlay's
+    // ptt-status listener is registered before the thread emits the first event.
+    // Never call set_focus() here — the active app must keep focus.
+    if let Some(overlay) = app.get_webview_window("ptt-overlay") {
+        let _ = overlay.show();
     }
 
     let handle = app.clone();
