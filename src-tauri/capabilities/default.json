@@ -5,6 +5,8 @@
   "windows": ["main", "ptt-overlay"],
   "permissions": [
     "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-start-dragging",
     "opener:default",
     "global-shortcut:allow-register"
   ]

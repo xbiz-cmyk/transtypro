@@ -117,16 +117,49 @@ The auto-hide timer is stored in `autoHideTimerRef`. Existing timers are cleared
 
 The overlay body area uses `data-tauri-drag-region` on the content div (left/centre). Tauri v2 excludes interactive elements (buttons) from triggering drag, so Cancel and Dismiss remain clickable. `cursor-move` provides a visual hint. The overlay starts at bottom-centre; the user can drag it anywhere during the session (position resets on restart).
 
+## Second fix round applied after second QA (PR #17 review — round 2)
+
+### Root cause
+
+After fix round 1, manual QA found three remaining failures:
+1. Overlay did not disappear after "Done."
+2. Cancel did not hide the overlay.
+3. Drag did not move the overlay.
+
+**Root cause for hide failures**: `getCurrentWindow().hide()` requires the `core:window:allow-hide` capability. This permission is NOT included in `core:default`. Without it, `hide()` silently fails (promise rejects, caught and swallowed). The backend never hid the window either.
+
+**Root cause for drag failure**: `data-tauri-drag-region` is a WebView2 HTML attribute that relies on Tauri intercepting `WM_NCHITTEST`. In this project's configuration it did not trigger window dragging. The correct approach for programmatic drag is `getCurrentWindow().startDragging()`, which requires the `core:window:allow-start-dragging` capability.
+
+**Root cause for Cancel not stopping recording**: `cancel_ptt` set the cancel flag and emitted a "cancelled" event but never called `overlay.hide()` from the backend. The JS `hideOverlay()` call also failed silently due to the missing capability.
+
+### Fixes applied (round 2)
+
+**Fix 1 — Add missing capabilities**
+
+`src-tauri/capabilities/default.json`: added `core:window:allow-hide` and `core:window:allow-start-dragging` to the permissions array. These are scoped to both `main` and `ptt-overlay` windows (the `windows` array already contains both).
+
+**Fix 2 — Backend hide for Done phase**
+
+Added `pub fn hide_ptt_overlay(app)` and `pub fn hide_ptt_overlay_after(app, delay_ms)` helpers to `src-tauri/src/services/ptt.rs`. `run_pipeline()` calls `hide_ptt_overlay_after(handle, 1500)` after emitting "done". The `is_cancelled()` helper calls `hide_ptt_overlay(handle)` immediately. This ensures the overlay disappears even if the JS `hide()` call is slow or races.
+
+**Fix 3 — Backend hide in cancel_ptt command**
+
+`src-tauri/src/commands/ptt.rs`: after `emit_ptt_status(..., "cancelled", ...)`, calls `hide_ptt_overlay(&app_handle)` directly. The overlay is hidden at the Rust level before the command returns.
+
+**Fix 4 — Replace data-tauri-drag-region with startDragging()**
+
+`src/components/PttOverlay.tsx`: removed `data-tauri-drag-region` attribute. Added `handleDragStart(e)` function that calls `getCurrentWindow().startDragging()` on left-pointer-down. Content area div uses `onPointerDown={handleDragStart}`. Cancel and Dismiss buttons are in a sibling div outside the drag area and are not affected.
+
 ## Files changed
 
 | File | Change |
 |---|---|
-| `src-tauri/capabilities/default.json` | Added `"ptt-overlay"` to `windows` array |
+| `src-tauri/capabilities/default.json` | Added `"ptt-overlay"` to `windows` array; added `core:window:allow-hide` and `core:window:allow-start-dragging` permissions |
 | `src-tauri/src/lib.rs` | Created `ptt-overlay` `WebviewWindowBuilder` in `setup()`; `overlay.show()` + `emit_ptt_status` pre-spawn emit in `ptt_start()`; thread emits replaced with helper |
-| `src-tauri/src/services/ptt.rs` | Added `pub fn emit_ptt_status` helper; replaced all 6 `handle.emit()` calls |
-| `src-tauri/src/commands/ptt.rs` | Replaced `app_handle.emit()` with `emit_ptt_status`; removed unused imports |
+| `src-tauri/src/services/ptt.rs` | Added `emit_ptt_status`, `hide_ptt_overlay`, `hide_ptt_overlay_after` helpers; replaced all `handle.emit()` calls; `run_pipeline()` calls `hide_ptt_overlay_after(1500)` after done; `is_cancelled()` calls `hide_ptt_overlay` |
+| `src-tauri/src/commands/ptt.rs` | Replaced `app_handle.emit()` with `emit_ptt_status`; added `hide_ptt_overlay` call after cancel; removed unused imports |
 | `src/App.tsx` | Extracted `MainApp` component; `App` checks `IS_PTT_OVERLAY` constant and renders `<PttOverlay />` if true, else `<MainApp />` |
-| `src/components/PttOverlay.tsx` | Standalone overlay component: `ptt-status` listener, animated waveform bars, phase labels; Cancel hides locally after success; timer managed via `useRef`; drag region on content area |
+| `src/components/PttOverlay.tsx` | Standalone overlay component: `ptt-status` listener, animated waveform bars, phase labels; Cancel hides locally after success; timer managed via `useRef`; `onPointerDown` drag via `startDragging()`; buttons outside drag area |
 
 ## Privacy and safety guarantees
 
@@ -141,7 +174,7 @@ The overlay body area uses `data-tauri-drag-region` on the content div (left/cen
 |---|---|
 | `cargo fmt --check` | ✅ Pass |
 | `cargo clippy --all-targets --all-features -- -D warnings` | ✅ Pass (0 warnings) |
-| `cargo test` | ✅ 152/152 pass |
+| `cargo test` | ✅ 152/152 pass (round 2) |
 | `npm run lint` (`tsc --noEmit`) | ✅ 0 errors |
 | `npm run build` | ✅ Pass (307.85 kB JS) |
 | `pwsh scripts/quality-check.ps1` | ✅ All checks passed |

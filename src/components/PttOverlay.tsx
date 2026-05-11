@@ -98,6 +98,15 @@ export default function PttOverlay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function handleDragStart(e: React.PointerEvent) {
+    if (e.button !== 0) return;
+    try {
+      await getCurrentWindow().startDragging();
+    } catch {
+      // ignore — drag is a convenience, not a critical feature
+    }
+  }
+
   async function handleCancel() {
     try {
       await cancelPtt();
@@ -121,7 +130,7 @@ export default function PttOverlay() {
         cursor-move provides a visual hint that the overlay is draggable.
       */}
       <div
-        data-tauri-drag-region
+        onPointerDown={handleDragStart}
         className="flex-1 flex items-center gap-3 px-4 h-full min-w-0 cursor-move"
       >
         <PhaseIndicator phase={phase} />

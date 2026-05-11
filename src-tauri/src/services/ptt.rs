@@ -42,6 +42,24 @@ pub fn emit_ptt_status(app: &tauri::AppHandle, phase: &str, message: &str) {
     let _ = app.emit_to("ptt-overlay", "ptt-status", event);
 }
 
+/// Hide the ptt-overlay window immediately from the backend.
+/// No-op if the window does not exist.
+pub fn hide_ptt_overlay(app: &tauri::AppHandle) {
+    if let Some(overlay) = app.get_webview_window("ptt-overlay") {
+        let _ = overlay.hide();
+    }
+}
+
+/// Hide the ptt-overlay window after `delay_ms` milliseconds.
+/// Spawns a detached thread; does not block the caller.
+pub fn hide_ptt_overlay_after(app: &tauri::AppHandle, delay_ms: u64) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+        hide_ptt_overlay(&handle);
+    });
+}
+
 // ─────────────────────────────── PTT phase ───────────────────────────────────
 
 /// Current phase of the PTT pipeline lifecycle.
@@ -236,6 +254,8 @@ impl PttPipelineService {
         ptt.set_phase(PttPhase::Idle);
         emit_ptt_status(handle, "done", "Done.");
         // Do NOT bring window to front on success — leave the user in their app.
+        // Hide the overlay after the "Done." message has been visible briefly.
+        hide_ptt_overlay_after(handle, 1500);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -251,11 +271,12 @@ impl PttPipelineService {
         }
     }
 
-    /// Check cancel flag. If set, emit cancelled event and return true.
+    /// Check cancel flag. If set, emit cancelled event, hide overlay, and return true.
     fn is_cancelled(&self, ptt: &PttState, handle: &tauri::AppHandle) -> bool {
         if ptt.cancel_flag.load(Ordering::SeqCst) {
             ptt.set_phase(PttPhase::Idle);
             emit_ptt_status(handle, "cancelled", "Cancelled.");
+            hide_ptt_overlay(handle);
             true
         } else {
             false

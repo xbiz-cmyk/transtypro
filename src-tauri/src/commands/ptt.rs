@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 
 use crate::errors::AppError;
 use crate::services::audio::AudioService;
-use crate::services::ptt::{emit_ptt_status, PttPhase, PttState};
+use crate::services::ptt::{emit_ptt_status, hide_ptt_overlay, PttPhase, PttState};
 
 /// Cancel an active PTT pipeline.
 ///
@@ -28,5 +28,8 @@ pub fn cancel_ptt(
 
     ptt_state.set_phase(PttPhase::Idle);
     emit_ptt_status(&app_handle, "cancelled", "Cancelled.");
+    // Hide the overlay directly from the backend so it disappears even if the
+    // JS hide() call in the frontend cannot complete (e.g. event routing delay).
+    hide_ptt_overlay(&app_handle);
     Ok(())
 }
