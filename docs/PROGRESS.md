@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 10 Push-to-Talk Pipeline — IMPLEMENTED on `phase/10-ptt-pipeline`, PR open for review.
+Phase 10.1 PTT Feedback Overlay Window — IMPLEMENTED on `phase/10.1-ptt-overlay-window`, PR open for review.
+Phase 10 Push-to-Talk Pipeline — MERGED into main.
 Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
 Phase 8 Privacy/Diagnostics/Retention — MERGED into main.
 Phase 7 Global Shortcut — MERGED into main.
@@ -18,6 +19,17 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 10.1 PTT Feedback Overlay Window: Secondary Tauri window (`ptt-overlay`) that appears while PTT is active and shows pipeline phase without stealing focus from the active app.
+- New: `src/components/PttOverlay.tsx` — standalone overlay component: `ptt-status` listener, animated waveform bars (CSS-only, no audio data), phase labels (Listening… / Transcribing… / Cleaning… / Inserting… / Done. / error), Cancel button (recording/transcribing/cleaning), Dismiss button (error), auto-hide on done/idle/cancelled, default state `phase="recording"` for first-event safety
+- Updated: `src-tauri/src/lib.rs` — `WebviewWindowBuilder` creates `ptt-overlay` at startup (hidden, always-on-top, decoration-free, non-focusable, skip-taskbar, 320×96 px, positioned bottom-center of primary monitor); `ptt_start()` calls `overlay.show()` before spawning the recording thread to guarantee listener registration before first event
+- Updated: `src/App.tsx` — extracted `MainApp` component; `App` checks `IS_PTT_OVERLAY = getCurrentWindow().label === "ptt-overlay"` at module load time and renders `<PttOverlay />` or `<MainApp />` accordingly
+- Updated: `src-tauri/capabilities/default.json` — `"ptt-overlay"` added to `windows` array (minimal capability change)
+- No new Rust tests needed (changes are window wiring, not logic); 152 existing tests all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (152/152), npm lint (tsc --noEmit), npm build (307.85 kB), quality-check.ps1
+- Focus safety: `.focused(false)` at build time; `show()` only, no `set_focus()`; active app retains focus throughout PTT pipeline
+- First-event delivery: pre-created window hydrates at startup; `show()` before thread spawn; fallback default state `phase="recording"`
+- Handoff: `handoff/phase-10.1-ptt-overlay-window.md`
 
 Phase 10 Push-to-Talk Pipeline: PTT mode added. Pressing the global shortcut starts recording in the background (no focus steal); pressing again stops and runs the full pipeline: stop → transcribe → optional cleanup → insert → save history.
 - New: `src-tauri/src/services/ptt.rs` — `PttPhase` enum, `PttState` (Tauri-managed with shared Arc audio fields), `PttPipelineService::run_pipeline()` + 8 unit tests
@@ -191,14 +203,14 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 10 PTT Pipeline PR open against `main` — awaiting orchestrator review and merge
+- Phase 10.1 PTT Overlay Window PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
 - No OS file picker for whisper binary or model path, or provider URLs (manual path entry only).
 - No model download UI (out of scope).
 - `push_to_talk_hold` is not functional on Windows (`RegisterHotKey` fires press-only); `push_to_talk_toggle` is the working PTT mode on Windows.
-- No audio level meter in overlay during PTT recording.
+- No real audio level meter in overlay during PTT recording (animated bars are CSS-only decorative placeholders).
 - `history_count` in `get_status_summary` uses `list_history().len()` — O(n); acceptable for now.
 - No startup auto-sweep — retention is manual only.
 - No search/filter backend for History page.
@@ -210,6 +222,7 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Next recommended task
 
-1. Orchestrator: review and merge Phase 9 PR (`phase/09-text-insertion`) then Phase 10 PR (`phase/10-ptt-pipeline`)
+1. Orchestrator: review and merge Phase 10.1 PR (`phase/10.1-ptt-overlay-window`)
 2. Phase 11: Packaging (Tauri bundler, installer, update manifest)
-3. Optional: active app context capture (window title + PID) to show in overlay during PTT
+3. Optional: wire `get_recording_status` RMS level to overlay bar heights for real audio feedback
+4. Optional: active app context capture (window title + PID) to show in overlay during PTT

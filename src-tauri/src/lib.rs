@@ -17,8 +17,9 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-use crate::models::PttStatusEvent;
-use crate::services::ptt::{PttPhase, PttPipelineService, PttState};
+use crate::services::ptt::{
+    capture_foreground_window, emit_ptt_status, PttPhase, PttPipelineService, PttState,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -73,6 +74,7 @@ pub fn run() {
                 samples: samples_arc,
                 sample_rate: sample_rate_arc,
                 channels: channels_arc,
+                target_hwnd: Arc::new(Mutex::new(None)),
             });
 
             // Phase 7 / Phase 9 / Phase 10: Register the configured global shortcut.
@@ -153,6 +155,44 @@ pub fn run() {
                 }
                 Err(e) => {
                     eprintln!("[shortcut] failed to parse shortcut string '{shortcut_str}': {e}");
+                }
+            }
+
+            // Phase 10.1: Create the PTT feedback overlay window (hidden at startup).
+            // Pre-loading the webview ensures PttOverlay's ptt-status listener is
+            // already registered before the first PTT recording starts.
+            // Window creation failure is non-fatal — PTT still works, just without overlay.
+            match tauri::WebviewWindowBuilder::new(
+                app.handle(),
+                "ptt-overlay",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("")
+            .inner_size(320.0, 96.0)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .decorations(false)
+            .visible(false)
+            .focused(false)
+            .resizable(false)
+            .minimizable(false)
+            .maximizable(false)
+            .closable(false)
+            .build()
+            {
+                Ok(overlay) => {
+                    // Position near bottom-center of the primary monitor.
+                    if let Ok(Some(monitor)) = overlay.primary_monitor() {
+                        let scale = monitor.scale_factor();
+                        let screen_w = monitor.size().width as f64 / scale;
+                        let screen_h = monitor.size().height as f64 / scale;
+                        let x = (screen_w - 320.0) / 2.0;
+                        let y = screen_h - 96.0 - 48.0;
+                        let _ = overlay.set_position(tauri::LogicalPosition::new(x, y));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[ptt-overlay] failed to create overlay window: {e}");
                 }
             }
 
@@ -255,29 +295,40 @@ fn ptt_start(app: &tauri::AppHandle) {
         return;
     }
 
+    // Capture the foreground window BEFORE showing the overlay.
+    // This preserves the user's active target so we can restore focus
+    // immediately before clipboard paste — even if the overlay was dragged.
+    // Only an opaque handle is stored; no title or contents are read.
+    let hwnd = capture_foreground_window();
+    if let Ok(mut guard) = ptt.target_hwnd.lock() {
+        *guard = if hwnd != 0 { Some(hwnd) } else { None };
+    }
+
+    // Show ptt-overlay before spawning the recording thread.
+    // Never call set_focus() here — the active app must keep focus.
+    if let Some(overlay) = app.get_webview_window("ptt-overlay") {
+        let _ = overlay.show();
+    }
+
+    // Emit recording status directly to both windows immediately after show().
+    // WebView2 may throttle JS in hidden windows; emit_to by label targets each
+    // window's IPC directly, ensuring the event arrives even if the webview just
+    // resumed from a background/throttled state.
+    emit_ptt_status(app, "recording", "Recording…");
+
     let handle = app.clone();
     std::thread::spawn(move || {
         let ptt = handle.state::<PttState>();
         let audio_view = ptt.audio_state_view();
         match services::AudioService::start_recording(None, &audio_view) {
             Ok(_) => {
-                let _ = handle.emit(
-                    "ptt-status",
-                    PttStatusEvent {
-                        phase: "recording".to_string(),
-                        message: "Recording…".to_string(),
-                    },
-                );
+                // Re-emit recording status from the thread after start_recording
+                // completes. The pre-spawn emit already fired; this confirms state.
+                emit_ptt_status(&handle, "recording", "Recording…");
             }
             Err(e) => {
                 ptt.set_phase(PttPhase::Idle);
-                let _ = handle.emit(
-                    "ptt-status",
-                    PttStatusEvent {
-                        phase: "error".to_string(),
-                        message: format!("Could not start recording: {e}"),
-                    },
-                );
+                emit_ptt_status(&handle, "error", &format!("Could not start recording: {e}"));
                 if let Some(window) = handle.get_webview_window("main") {
                     let _ = window.unminimize();
                     let _ = window.show();

@@ -23,6 +23,93 @@ use crate::services::{
     CleanupService, HistoryService, InsertionService, ProvidersService, TranscriptionService,
 };
 
+// ─────────────────────── Windows focus helpers ───────────────────────────────
+
+// Raw Win32 FFI — only compiled on Windows.
+// HWND is stored as isize (pointer-sized integer) so it can cross thread
+// boundaries inside Arc<Mutex<…>> without requiring unsafe Send impls.
+// Only GetForegroundWindow / IsWindow / SetForegroundWindow are used; window
+// title, process name, and contents are never read.
+#[cfg(target_os = "windows")]
+#[link(name = "user32")]
+extern "system" {
+    fn GetForegroundWindow() -> isize;
+    fn IsWindow(hwnd: isize) -> i32;
+    fn SetForegroundWindow(hwnd: isize) -> i32;
+}
+
+/// Capture the current foreground window handle as an opaque integer.
+/// Returns 0 on non-Windows or if no foreground window exists.
+/// The handle is used only to restore focus before insertion; no title or
+/// contents are read.
+pub fn capture_foreground_window() -> isize {
+    #[cfg(target_os = "windows")]
+    {
+        unsafe { GetForegroundWindow() }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        0
+    }
+}
+
+/// Restore focus to the window identified by `hwnd`.
+/// No-op if `hwnd` is 0, the window no longer exists, or on non-Windows.
+fn restore_foreground_window(hwnd: isize) {
+    #[cfg(target_os = "windows")]
+    {
+        if hwnd == 0 {
+            return;
+        }
+        unsafe {
+            if IsWindow(hwnd) != 0 {
+                SetForegroundWindow(hwnd);
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = hwnd;
+    }
+}
+
+// ─────────────────────── Status event helper ─────────────────────────────────
+
+/// Emit a PTT status event explicitly to both the main window and the ptt-overlay window.
+///
+/// Uses emit_to by window label instead of the broadcast emit() so that each
+/// window receives the event via a direct IPC path. This avoids the WebView2
+/// background-throttling issue on Windows where hidden webviews may not receive
+/// broadcast events reliably.
+///
+/// Message must contain only generic status strings — never user-dictated content.
+pub fn emit_ptt_status(app: &tauri::AppHandle, phase: &str, message: &str) {
+    let event = PttStatusEvent {
+        phase: phase.to_string(),
+        message: message.to_string(),
+    };
+    let _ = app.emit_to("main", "ptt-status", event.clone());
+    let _ = app.emit_to("ptt-overlay", "ptt-status", event);
+}
+
+/// Hide the ptt-overlay window immediately from the backend.
+/// No-op if the window does not exist.
+pub fn hide_ptt_overlay(app: &tauri::AppHandle) {
+    if let Some(overlay) = app.get_webview_window("ptt-overlay") {
+        let _ = overlay.hide();
+    }
+}
+
+/// Hide the ptt-overlay window after `delay_ms` milliseconds.
+/// Spawns a detached thread; does not block the caller.
+pub fn hide_ptt_overlay_after(app: &tauri::AppHandle, delay_ms: u64) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+        hide_ptt_overlay(&handle);
+    });
+}
+
 // ─────────────────────────────── PTT phase ───────────────────────────────────
 
 /// Current phase of the PTT pipeline lifecycle.
@@ -54,6 +141,12 @@ pub struct PttState {
     pub samples: Arc<Mutex<Vec<f32>>>,
     pub sample_rate: Arc<Mutex<u32>>,
     pub channels: Arc<Mutex<u16>>,
+    /// Opaque foreground window handle captured immediately before the PTT
+    /// overlay is shown. Used only to restore focus before clipboard paste so
+    /// the text lands in the correct app even if the overlay was dragged.
+    /// Stored as isize (pointer-sized integer) to be Send + Sync.
+    /// Window title, process name, and contents are never read.
+    pub target_hwnd: Arc<Mutex<Option<isize>>>,
 }
 
 impl PttState {
@@ -130,13 +223,7 @@ impl PttPipelineService {
 
         // ── Step 2: Transcribe ──────────────────────────────────────────────
         ptt.set_phase(PttPhase::Transcribing);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "transcribing".to_string(),
-                message: "Transcribing…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "transcribing", "Transcribing…");
 
         let (binary_path, model_path) = match self.read_whisper_paths() {
             Ok(t) => t,
@@ -176,13 +263,19 @@ impl PttPipelineService {
 
         // ── Step 4: Insert ──────────────────────────────────────────────────
         ptt.set_phase(PttPhase::Inserting);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "inserting".to_string(),
-                message: "Inserting…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "inserting", "Inserting…");
+
+        // Restore focus to the original target window before pasting.
+        // Dragging the overlay can shift the OS foreground away from the user's
+        // app. We captured the HWND in ptt_start() before showing the overlay.
+        // Only an opaque handle is used — no title or contents are read.
+        let target_hwnd = ptt.target_hwnd.lock().ok().and_then(|g| *g).unwrap_or(0);
+        restore_foreground_window(target_hwnd);
+        if target_hwnd != 0 {
+            // Brief pause so the OS can complete the focus transfer before
+            // enigo fires SendInput (Ctrl+V) at the now-focused window.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
         // Call InsertionService directly — NOT via the insert_text Tauri command.
         // The Tauri command minimizes/restores the window which is wrong for PTT
@@ -227,14 +320,10 @@ impl PttPipelineService {
 
         // ── Done ────────────────────────────────────────────────────────────
         ptt.set_phase(PttPhase::Idle);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "done".to_string(),
-                message: "Done.".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "done", "Done.");
         // Do NOT bring window to front on success — leave the user in their app.
+        // Hide the overlay after the "Done." message has been visible briefly.
+        hide_ptt_overlay_after(handle, 1500);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -242,13 +331,7 @@ impl PttPipelineService {
     /// Emit error, bring window to front, reset to Idle.
     fn abort(&self, ptt: &PttState, handle: &tauri::AppHandle, message: String) {
         ptt.set_phase(PttPhase::Idle);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "error".to_string(),
-                message,
-            },
-        );
+        emit_ptt_status(handle, "error", &message);
         if let Some(window) = handle.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
@@ -256,17 +339,12 @@ impl PttPipelineService {
         }
     }
 
-    /// Check cancel flag. If set, emit cancelled event and return true.
+    /// Check cancel flag. If set, emit cancelled event, hide overlay, and return true.
     fn is_cancelled(&self, ptt: &PttState, handle: &tauri::AppHandle) -> bool {
         if ptt.cancel_flag.load(Ordering::SeqCst) {
             ptt.set_phase(PttPhase::Idle);
-            let _ = handle.emit(
-                "ptt-status",
-                PttStatusEvent {
-                    phase: "cancelled".to_string(),
-                    message: "Cancelled.".to_string(),
-                },
-            );
+            emit_ptt_status(handle, "cancelled", "Cancelled.");
+            hide_ptt_overlay(handle);
             true
         } else {
             false
@@ -286,13 +364,7 @@ impl PttPipelineService {
         };
 
         ptt.set_phase(PttPhase::Cleaning);
-        let _ = handle.emit(
-            "ptt-status",
-            PttStatusEvent {
-                phase: "cleaning".to_string(),
-                message: "Cleaning text…".to_string(),
-            },
-        );
+        emit_ptt_status(handle, "cleaning", "Cleaning text…");
 
         match CleanupService::new(self.db.clone()).cleanup(raw_text, &provider_id) {
             Ok(r) => Some(r.cleaned_text),
@@ -349,6 +421,7 @@ mod tests {
             samples: Arc::new(Mutex::new(Vec::new())),
             sample_rate: Arc::new(Mutex::new(44100)),
             channels: Arc::new(Mutex::new(1)),
+            target_hwnd: Arc::new(Mutex::new(None)),
         }
     }
 
