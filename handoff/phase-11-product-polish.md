@@ -35,6 +35,10 @@ Replace prototype-level styling and UX with a polished product:
 | `src-tauri/src/services/ptt.rs` | Edit | Add `read_ptt_output_mode()` helper; branch in `run_pipeline()` |
 | `src-tauri/src/services/diagnostics.rs` | Edit (1 line) | Bump expected migration version from 5 → 6 |
 | `src-tauri/src/services/privacy.rs` | Edit (1 line) | Minimal forced touch: add `ptt_output_mode` to test struct literal for struct completeness |
+| `src-tauri/src/lib.rs` | Edit (4 lines) | Make `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` `pub(crate)` |
+| `src-tauri/src/commands/shortcut.rs` | Edit | Replace hardcoded `open_dictation` handler with full behavior-aware handler (QA fix) |
+| `src-tauri/src/services/ptt.rs` | Edit | Add `strip_whisper_timestamps` helper + 6 tests; apply to pipeline before insertion (QA fix) |
+| `src/pages/Settings.tsx` | Edit | Fix recorder "Use this": only go idle on success; stay in captured for error retry (QA fix) |
 
 ---
 
@@ -181,8 +185,9 @@ Phase label comes from the backend `message` field as before. Only the recording
 |---|---|
 | `db/migrations.rs` | `test_migration_006_adds_ptt_output_mode_column`, `test_migration_006_default_value`, `test_migration_006_idempotent` |
 | `db/repositories/settings_repo.rs` | `test_settings_repo_ptt_output_mode_default`, `test_settings_repo_ptt_output_mode_round_trip`, `test_settings_repo_ptt_output_mode_preserves_other_fields` |
+| `services/ptt.rs` | `test_strip_whisper_timestamps_single_line`, `test_strip_whisper_timestamps_multiple_lines`, `test_strip_whisper_timestamps_plain_text_unchanged`, `test_strip_whisper_timestamps_blank_audio_skipped`, `test_strip_whisper_timestamps_mixed_blank_and_speech`, `test_strip_whisper_timestamps_empty_input` |
 
-**Total: 158 tests, 0 failed** (up from 152)
+**Total: 164 tests, 0 failed** (up from 152)
 
 ### Verification commands
 
@@ -191,9 +196,9 @@ Phase label comes from the backend `message` field as before. Only the recording
 | `cargo fmt` | ✅ Pass |
 | `cargo fmt --check` | ✅ Pass (0 differences) |
 | `cargo clippy --all-targets --all-features -- -D warnings` | ✅ Pass (0 warnings) |
-| `cargo test` | ✅ 158/158 pass |
+| `cargo test` | ✅ 164/164 pass |
 | `npm run lint` (`tsc --noEmit`) | ✅ 0 errors |
-| `npm run build` | ✅ Pass (315.80 kB JS) |
+| `npm run build` | ✅ Pass (315.83 kB JS) |
 | `pwsh scripts/quality-check.ps1` | ✅ All checks passed |
 
 ---
@@ -267,6 +272,38 @@ This section documents the expected behavior. Live QA results should be confirme
 - `ptt-status` events still contain only phase keywords and generic status strings — no user content
 - ShortcutRecorder keydown listener removed via `useEffect` cleanup; keys never logged
 - `read_ptt_output_mode()` reads only a setting string from DB — no user content
+
+---
+
+## QA fixes (post-initial-implementation)
+
+Four issues were found during manual QA and fixed before merge:
+
+### Fix 1 — Runtime shortcut handler not behavior-aware
+
+**Root cause:** `update_shortcut` in `commands/shortcut.rs` registered the new shortcut with a hardcoded `open_dictation` handler. Changing the shortcut while in PTT-toggle mode would revert it to open-dictation behavior.
+
+**Fix:** Made `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` `pub(crate)` in `lib.rs`. Replaced the `on_shortcut` closure in `shortcut.rs` with the full behavior-aware handler matching the one in `lib.rs`'s setup(), including Windows hold→toggle normalization.
+
+### Fix 2 — Shortcut recorder: "Use this" went idle immediately on async apply
+
+**Root cause:** `onClick` called `void handleApplyShortcut(capturedCombo)` (fire-and-forget) and `setRecorderState("idle")` synchronously — the recorder went idle even if the backend rejected the shortcut, with no retry possible.
+
+**Fix:** `handleApplyShortcut` now returns `Promise<boolean>`. "Use this" `onClick` is `async`; `setRecorderState("idle")` is called only when the returned promise resolves `true`. On failure, the recorder stays in `captured` state so the user can retry or cancel.
+
+### Fix 3 — Whisper timestamp markers in fast-mode output
+
+**Root cause:** `TranscriptionService` returns raw Whisper stdout verbatim, which includes `[HH:MM:SS.mmm --> HH:MM:SS.mmm]` prefix lines. In `insert_raw` mode, these were passed directly to `InsertionService`.
+
+**Fix:** Added `strip_whisper_timestamps(text: &str) -> String` to `ptt.rs` (no regex; simple line-by-line parse). Applied to produce `stripped_text` before building `final_text` in both `insert_raw` and `clean_before_insert` modes. The original `raw_text` (with timestamps) is preserved in history for traceability.
+
+### Fix 4 — Overlay timer (no code change needed)
+
+The timer implementation in `PttOverlay.tsx` was structurally correct. The QA failure was a cascade from Fix 1 (PTT never triggered in toggle mode after a recorder use). Once Fix 1 is applied, the overlay timer should work as specified: `Listening… 0s` → `Listening… Ns` during recording, stops on any non-recording phase event.
+
+### Fix 5 — Titlebar icon (deferred to Phase 12)
+
+The `tauri.conf.json` already references `icons/icon.ico` and `icons/icon.png` correctly. The visible issue is that `icon.ico` contains the default Tauri scaffold icon, not a transtypro logo. Replacing it requires generating a multi-resolution `.ico` binary (16/32/48/256 px layers). Deferred to Phase 12 packaging.
 
 ---
 

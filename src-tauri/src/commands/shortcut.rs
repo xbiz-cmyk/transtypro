@@ -56,19 +56,56 @@ pub fn update_shortcut(
         return Ok(trimmed);
     }
 
-    // --- Register new shortcut with the full dictation handler (register-first) ---
-    // Using on_shortcut ensures the handler fires, not bare register().
+    // --- Register new shortcut with the behavior-aware handler (register-first) ---
+    // Must mirror the handler in lib.rs setup() exactly so that runtime shortcut
+    // updates respect the shortcut_behavior setting (PTT toggle, open_dictation, etc.).
     let app_for_handler = app_handle.clone();
     app_handle
         .global_shortcut()
         .on_shortcut(new_parsed, move |app_handle, _shortcut, event| {
-            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.unminimize();
-                    let _ = window.show();
-                    let _ = window.set_focus();
+            let behavior = {
+                let raw = crate::read_shortcut_behavior(app_handle);
+                if cfg!(target_os = "windows") && raw == "push_to_talk_hold" {
+                    "push_to_talk_toggle".to_string()
+                } else {
+                    raw
                 }
-                let _ = app_handle.emit("dictation-shortcut-pressed", ());
+            };
+
+            match event.state() {
+                tauri_plugin_global_shortcut::ShortcutState::Pressed => match behavior.as_str() {
+                    "open_dictation" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app_handle.emit("dictation-shortcut-pressed", ());
+                    }
+                    "push_to_talk_hold" => {
+                        crate::ptt_start(app_handle);
+                    }
+                    "push_to_talk_toggle" => {
+                        crate::ptt_toggle(app_handle);
+                    }
+                    _ => {
+                        eprintln!(
+                            "[shortcut] unknown shortcut_behavior '{behavior}', \
+                                 falling back to open_dictation"
+                        );
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app_handle.emit("dictation-shortcut-pressed", ());
+                    }
+                },
+                tauri_plugin_global_shortcut::ShortcutState::Released => {
+                    if behavior == "push_to_talk_hold" {
+                        crate::ptt_stop_and_run(app_handle);
+                    }
+                }
             }
         })
         .map_err(|e| {

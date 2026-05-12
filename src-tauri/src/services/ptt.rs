@@ -247,6 +247,10 @@ impl PttPipelineService {
         };
 
         let raw_text = transcription_result.raw_text.clone();
+        // Strip whisper.cpp timestamp markers ([HH:MM:SS.mmm --> HH:MM:SS.mmm]) before
+        // insertion. raw_text preserved in history for traceability; all user-visible text
+        // uses the stripped version.
+        let stripped_text = strip_whisper_timestamps(&raw_text);
 
         if self.is_cancelled(ptt, handle) {
             return;
@@ -255,10 +259,10 @@ impl PttPipelineService {
         // ── Step 3: Optional cleanup (non-fatal) ────────────────────────────
         // In insert_raw mode, skip cleanup entirely for lower latency.
         let final_text = if self.read_ptt_output_mode() == "insert_raw" {
-            raw_text.clone()
+            stripped_text.clone()
         } else {
-            self.try_cleanup(&raw_text, ptt, handle)
-                .unwrap_or_else(|| raw_text.clone())
+            self.try_cleanup(&stripped_text, ptt, handle)
+                .unwrap_or_else(|| stripped_text.clone())
         };
 
         if self.is_cancelled(ptt, handle) {
@@ -418,6 +422,40 @@ impl PttPipelineService {
     }
 }
 
+// ────────────────────────── Timestamp stripping ──────────────────────────────
+
+/// Strip whisper.cpp timestamp markers from raw transcription output.
+///
+/// Whisper.cpp emits lines in the form:
+///   `[00:00:00.000 --> 00:00:07.940]  Hello, this is the text.`
+///
+/// This function removes the `[timestamp --> timestamp]` prefix from each such
+/// line and joins the remaining text fragments with a space. Lines that do not
+/// contain `-->` (including `[BLANK_AUDIO]` noise markers) are either kept as-is
+/// (plain text) or skipped (bracket-only markers). Empty lines are always skipped.
+///
+/// If the input has no timestamp markers, it is returned unchanged (trimmed).
+pub(crate) fn strip_whisper_timestamps(text: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.contains("-->") {
+            // Timestamp line: extract the text that follows the closing `]`.
+            if let Some(bracket_end) = trimmed.find(']') {
+                let rest = trimmed[bracket_end + 1..].trim();
+                if !rest.is_empty() {
+                    parts.push(rest);
+                }
+            }
+        } else if trimmed.starts_with('[') {
+            // Non-timestamp bracket marker (e.g. [BLANK_AUDIO], [MUSIC]) — skip.
+        } else if !trimmed.is_empty() {
+            parts.push(trimmed);
+        }
+    }
+    parts.join(" ")
+}
+
 // ─────────────────────────────── Tests ───────────────────────────────────────
 
 #[cfg(test)]
@@ -550,5 +588,48 @@ mod tests {
         };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"phase\":\"error\""));
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_single_line() {
+        let input = "[00:00:00.000 --> 00:00:07.940]  Hello, this is a test.";
+        assert_eq!(strip_whisper_timestamps(input), "Hello, this is a test.");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_multiple_lines() {
+        let input = "[00:00:00.000 --> 00:00:05.000]  First sentence.\n\
+                     [00:00:05.000 --> 00:00:10.000]  Second sentence.";
+        assert_eq!(
+            strip_whisper_timestamps(input),
+            "First sentence. Second sentence."
+        );
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_plain_text_unchanged() {
+        let input = "Hello, world!";
+        assert_eq!(strip_whisper_timestamps(input), "Hello, world!");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_blank_audio_skipped() {
+        let input = "[BLANK_AUDIO]";
+        assert_eq!(strip_whisper_timestamps(input), "");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_mixed_blank_and_speech() {
+        let input = "[00:00:00.000 --> 00:00:02.000]  [BLANK_AUDIO]\n\
+                     [00:00:02.000 --> 00:00:06.000]  Actual words here.";
+        assert_eq!(
+            strip_whisper_timestamps(input),
+            "[BLANK_AUDIO] Actual words here."
+        );
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_empty_input() {
+        assert_eq!(strip_whisper_timestamps(""), "");
     }
 }

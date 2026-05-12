@@ -264,7 +264,7 @@ pub fn run() {
 // ─────────────────────── PTT shortcut handler helpers ────────────────────────
 
 /// Read shortcut_behavior from the DB. Returns "open_dictation" on any error.
-fn read_shortcut_behavior(app: &tauri::AppHandle) -> String {
+pub(crate) fn read_shortcut_behavior(app: &tauri::AppHandle) -> String {
     app.state::<db::AppState>()
         .db
         .lock()
@@ -276,7 +276,7 @@ fn read_shortcut_behavior(app: &tauri::AppHandle) -> String {
 
 /// Start PTT recording. CAS guard: only transitions from Idle → Recording.
 /// Spawns a thread because AudioService::start_recording is blocking.
-fn ptt_start(app: &tauri::AppHandle) {
+pub(crate) fn ptt_start(app: &tauri::AppHandle) {
     let ptt = app.state::<PttState>();
 
     // CAS: only start if currently Idle.
@@ -341,7 +341,7 @@ fn ptt_start(app: &tauri::AppHandle) {
 
 /// Stop recording and spawn the full PTT pipeline.
 /// Only acts if the current phase is Recording.
-fn ptt_stop_and_run(app: &tauri::AppHandle) {
+pub(crate) fn ptt_stop_and_run(app: &tauri::AppHandle) {
     let ptt = app.state::<PttState>();
 
     let is_recording = {
@@ -364,7 +364,7 @@ fn ptt_stop_and_run(app: &tauri::AppHandle) {
 
 /// Toggle PTT: first press starts recording, second press stops and runs pipeline.
 /// Ignores presses while the pipeline is in any other phase (transcribing etc.).
-fn ptt_toggle(app: &tauri::AppHandle) {
+pub(crate) fn ptt_toggle(app: &tauri::AppHandle) {
     let ptt = app.state::<PttState>();
 
     let (is_idle, is_recording) = {

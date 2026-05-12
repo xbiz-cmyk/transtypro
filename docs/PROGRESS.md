@@ -4,7 +4,7 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 11 Product Polish — IMPLEMENTED on `phase/11-product-polish`, PR open for review.
+Phase 11 Product Polish — IMPLEMENTED + QA-fixed on `phase/11-product-polish`, PR open for review.
 Phase 10.1 PTT Feedback Overlay Window — MERGED into main.
 Phase 10 Push-to-Talk Pipeline — MERGED into main.
 Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
@@ -35,8 +35,12 @@ Phase 11 Product Polish: Visual polish, shortcut recorder, PTT speed setting, an
 - Updated: `src-tauri/src/services/ptt.rs` — `read_ptt_output_mode()` helper; `run_pipeline()` branches: `insert_raw` skips cleanup and emits no cleaning phase
 - Updated: `src-tauri/src/services/diagnostics.rs` — expected migration version bumped 5 → 6 (1 line)
 - Updated: `src-tauri/src/services/privacy.rs` — minimal forced touch: `ptt_output_mode` added to test struct literal
-- 158 tests total (152 → 158, 6 new); all pass
-- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (158/158), npm lint (tsc --noEmit), npm build (315.80 kB), quality-check.ps1
+- QA fix: `src-tauri/src/lib.rs` — `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` made `pub(crate)`
+- QA fix: `src-tauri/src/commands/shortcut.rs` — `update_shortcut` now registers behavior-aware handler (PTT toggle/hold/open_dictation) matching lib.rs setup(); previously hardcoded open_dictation
+- QA fix: `src-tauri/src/services/ptt.rs` — `strip_whisper_timestamps()` helper strips `[HH:MM:SS --> HH:MM:SS]` markers from Whisper output before insertion; applied in both insert_raw and clean_before_insert paths; 6 new tests
+- QA fix: `src/pages/Settings.tsx` — shortcut recorder "Use this" only returns to idle on backend success; stays in captured state for error retry
+- 164 tests total (158 → 164, 6 new); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (164/164), npm lint (tsc --noEmit), npm build (315.83 kB), quality-check.ps1
 - Handoff: `handoff/phase-11-product-polish.md`
 
 Phase 10.1 PTT Feedback Overlay Window: Secondary Tauri window (`ptt-overlay`) that appears while PTT is active and shows pipeline phase without stealing focus from the active app.

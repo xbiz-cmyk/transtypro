@@ -175,7 +175,7 @@ export default function Settings() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [recorderState]);
 
-  async function handleApplyShortcut(combo?: string) {
+  async function handleApplyShortcut(combo?: string): Promise<boolean> {
     const target = combo ?? shortcut;
     setShortcutSaving(true);
     setShortcutMessage(null);
@@ -184,8 +184,10 @@ export default function Settings() {
       const accepted = await updateShortcut(target);
       setShortcut(accepted);
       setShortcutMessage("Shortcut applied.");
+      return true;
     } catch (e) {
       setShortcutError(String(e));
+      return false;
     } finally {
       setShortcutSaving(false);
     }
@@ -311,9 +313,11 @@ export default function Settings() {
                       variant="primary"
                       size="sm"
                       disabled={shortcutSaving}
-                      onClick={() => {
-                        void handleApplyShortcut(capturedCombo);
-                        setRecorderState("idle");
+                      onClick={async () => {
+                        if (capturedCombo && await handleApplyShortcut(capturedCombo)) {
+                          setRecorderState("idle");
+                        }
+                        // On failure: stay in "captured" so user can retry or cancel.
                       }}
                     >
                       {shortcutSaving ? "Applying…" : "Use this"}
