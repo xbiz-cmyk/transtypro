@@ -98,7 +98,7 @@ impl DiagnosticsService {
     }
 
     fn check_migrations_current(&self) -> DiagnosticCheck {
-        const EXPECTED_VERSION: i64 = 5;
+        const EXPECTED_VERSION: i64 = 6;
         match self.db.lock() {
             Ok(conn) => {
                 let result: Result<Option<i64>, _> =

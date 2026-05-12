@@ -253,6 +253,7 @@ mod tests {
             whisper_model_path: None,
             shortcut: "CommandOrControl+Shift+Space".to_string(),
             shortcut_behavior: "open_dictation".to_string(),
+            ptt_output_mode: "clean_before_insert".to_string(),
         };
         SettingsRepository::new(&conn).upsert(&s).unwrap();
         let svc = PrivacyService::new(Arc::new(Mutex::new(conn)));

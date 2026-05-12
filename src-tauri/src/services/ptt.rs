@@ -253,9 +253,13 @@ impl PttPipelineService {
         }
 
         // ── Step 3: Optional cleanup (non-fatal) ────────────────────────────
-        let final_text = self
-            .try_cleanup(&raw_text, ptt, handle)
-            .unwrap_or_else(|| raw_text.clone());
+        // In insert_raw mode, skip cleanup entirely for lower latency.
+        let final_text = if self.read_ptt_output_mode() == "insert_raw" {
+            raw_text.clone()
+        } else {
+            self.try_cleanup(&raw_text, ptt, handle)
+                .unwrap_or_else(|| raw_text.clone())
+        };
 
         if self.is_cancelled(ptt, handle) {
             return;
@@ -370,6 +374,15 @@ impl PttPipelineService {
             Ok(r) => Some(r.cleaned_text),
             Err(_) => None, // non-fatal
         }
+    }
+
+    fn read_ptt_output_mode(&self) -> String {
+        self.db
+            .lock()
+            .ok()
+            .and_then(|conn| SettingsRepository::new(&conn).get().ok())
+            .map(|s| s.ptt_output_mode)
+            .unwrap_or_else(|| "clean_before_insert".to_string())
     }
 
     fn find_cleanup_provider_id(&self) -> Result<Option<String>, AppError> {

@@ -1,22 +1,58 @@
 import { NavLink } from "react-router-dom";
 import type { NavItem } from "../lib/types";
+import Logo from "./Logo";
+import {
+  HomeIcon,
+  DictationIcon,
+  HistoryIcon,
+  ModesIcon,
+  VocabularyIcon,
+  ModelsIcon,
+  ProvidersIcon,
+  PrivacyIcon,
+  DiagnosticsIcon,
+  SettingsIcon,
+  AboutIcon,
+} from "./icons";
 
 const mainNavItems: NavItem[] = [
-  { path: "/", label: "Home", icon: "🏠" },
-  { path: "/dictation", label: "Dictation", icon: "🎙️" },
-  { path: "/history", label: "History", icon: "📋" },
-  { path: "/modes", label: "Modes", icon: "⚡" },
-  { path: "/vocabulary", label: "Vocabulary", icon: "📖" },
-  { path: "/models", label: "Models", icon: "🧠" },
-  { path: "/providers", label: "Providers", icon: "☁️" },
+  { path: "/", label: "Home", icon: "home" },
+  { path: "/dictation", label: "Dictation", icon: "dictation" },
+  { path: "/history", label: "History", icon: "history" },
+  { path: "/modes", label: "Modes", icon: "modes" },
+  { path: "/vocabulary", label: "Vocabulary", icon: "vocabulary" },
+  { path: "/models", label: "Models", icon: "models" },
+  { path: "/providers", label: "Providers", icon: "providers" },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { path: "/privacy", label: "Privacy", icon: "🔒" },
-  { path: "/diagnostics", label: "Diagnostics", icon: "🔧" },
-  { path: "/settings", label: "Settings", icon: "⚙️" },
-  { path: "/about", label: "About", icon: "ℹ️" },
+  { path: "/privacy", label: "Privacy", icon: "privacy" },
+  { path: "/diagnostics", label: "Diagnostics", icon: "diagnostics" },
+  { path: "/settings", label: "Settings", icon: "settings" },
+  { path: "/about", label: "About", icon: "about" },
 ];
+
+const iconMap: Record<string, React.ReactElement> = {
+  home:        <HomeIcon size={16} />,
+  dictation:   <DictationIcon size={16} />,
+  history:     <HistoryIcon size={16} />,
+  modes:       <ModesIcon size={16} />,
+  vocabulary:  <VocabularyIcon size={16} />,
+  models:      <ModelsIcon size={16} />,
+  providers:   <ProvidersIcon size={16} />,
+  privacy:     <PrivacyIcon size={16} />,
+  diagnostics: <DiagnosticsIcon size={16} />,
+  settings:    <SettingsIcon size={16} />,
+  about:       <AboutIcon size={16} />,
+};
+
+function NavIcon({ name }: { name: string }) {
+  return (
+    <span className="w-5 flex items-center justify-center shrink-0">
+      {iconMap[name] ?? null}
+    </span>
+  );
+}
 
 function NavItemLink({ item }: { item: NavItem }) {
   return (
@@ -33,7 +69,7 @@ function NavItemLink({ item }: { item: NavItem }) {
           }`
         }
       >
-        <span className="text-base w-5 text-center">{item.icon}</span>
+        <NavIcon name={item.icon} />
         <span>{item.label}</span>
       </NavLink>
     </li>
@@ -47,13 +83,16 @@ export default function Sidebar() {
       className="fixed top-0 left-0 h-screen w-(--spacing-sidebar) bg-(--color-surface-sidebar) border-r border-(--color-border-default) flex flex-col z-10"
     >
       {/* Brand header */}
-      <div className="px-5 py-5 border-b border-(--color-border-subtle)">
-        <h1 className="text-lg font-semibold tracking-tight text-(--color-text-primary)">
-          transtypro
-        </h1>
-        <p className="text-xs text-(--color-text-muted) mt-1">
-          Speak instead of type
-        </p>
+      <div className="px-5 py-5 border-b border-(--color-border-subtle) flex items-center gap-3">
+        <Logo size={22} />
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight text-(--color-text-primary) leading-none">
+            transtypro
+          </h1>
+          <p className="text-xs text-(--color-text-muted) mt-0.5">
+            Speak instead of type
+          </p>
+        </div>
       </div>
 
       {/* Main navigation */}
@@ -72,11 +111,6 @@ export default function Sidebar() {
             <NavItemLink key={item.path} item={item} />
           ))}
         </ul>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-(--color-border-subtle) text-xs text-(--color-text-muted)">
-        Phase 1 — UI shell
       </div>
     </aside>
   );

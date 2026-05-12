@@ -5,6 +5,7 @@ import type { StatusSummary } from "../lib/types";
 import Card, { CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import Logo from "../components/Logo";
 
 export default function Home() {
   const [status, setStatus] = useState<StatusSummary | null>(null);
@@ -34,9 +35,12 @@ export default function Home() {
 
   return (
     <div id="home-page" className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-(--color-text-primary) mb-1">
-        Welcome to transtypro
-      </h1>
+      <div className="flex items-center gap-3 mb-1">
+        <Logo size={28} />
+        <h1 className="text-2xl font-semibold text-(--color-text-primary)">
+          transtypro
+        </h1>
+      </div>
       <p className="text-sm text-(--color-text-secondary) mb-8">
         Speak instead of type — local-first AI dictation for your desktop.
       </p>
@@ -85,11 +89,11 @@ export default function Home() {
         {/* Last transcription card */}
         <Card>
           <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
-            Last transcription
+            History
           </p>
-          <p className="text-sm text-(--color-text-muted) italic">
+          <p className="text-sm font-semibold text-(--color-text-primary)">
             {status && status.history_count > 0
-              ? `${status.history_count} session(s) recorded`
+              ? `${status.history_count} ${status.history_count === 1 ? "session" : "sessions"}`
               : "No sessions yet"}
           </p>
           <Link
@@ -105,16 +109,15 @@ export default function Home() {
           <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
             Quick start
           </p>
-          <p className="text-sm text-(--color-text-secondary)">
-            Go to{" "}
-            <Link
-              to="/dictation"
-              className="text-(--color-brand-300) hover:underline"
-            >
-              Dictation
-            </Link>{" "}
-            to record your first session.
+          <p className="text-sm text-(--color-text-secondary) mb-3">
+            Press your shortcut or open Dictation to record your first session.
           </p>
+          <Link
+            to="/dictation"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-(--radius-btn) bg-(--color-brand-500) text-white text-sm font-medium hover:bg-(--color-brand-400) transition-colors"
+          >
+            Start dictating →
+          </Link>
         </Card>
       </div>
 
