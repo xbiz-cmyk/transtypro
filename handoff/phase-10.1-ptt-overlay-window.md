@@ -155,17 +155,39 @@ Added `pub fn hide_ptt_overlay(app)` and `pub fn hide_ptt_overlay_after(app, del
 | File | Change |
 |---|---|
 | `src-tauri/capabilities/default.json` | Added `"ptt-overlay"` to `windows` array; added `core:window:allow-hide` and `core:window:allow-start-dragging` permissions |
-| `src-tauri/src/lib.rs` | Created `ptt-overlay` `WebviewWindowBuilder` in `setup()`; `overlay.show()` + `emit_ptt_status` pre-spawn emit in `ptt_start()`; thread emits replaced with helper |
-| `src-tauri/src/services/ptt.rs` | Added `emit_ptt_status`, `hide_ptt_overlay`, `hide_ptt_overlay_after` helpers; replaced all `handle.emit()` calls; `run_pipeline()` calls `hide_ptt_overlay_after(1500)` after done; `is_cancelled()` calls `hide_ptt_overlay` |
+| `src-tauri/src/lib.rs` | Created `ptt-overlay` `WebviewWindowBuilder` in `setup()`; `overlay.show()` + `emit_ptt_status` pre-spawn emit in `ptt_start()`; captures foreground HWND before `overlay.show()`; thread emits replaced with helper |
+| `src-tauri/src/services/ptt.rs` | Added `emit_ptt_status`, `hide_ptt_overlay`, `hide_ptt_overlay_after`, `capture_foreground_window`, `restore_foreground_window` helpers; `PttState` gains `target_hwnd` field; `run_pipeline()` restores focus before `insert_text()`, then calls `hide_ptt_overlay_after(1500)` after done; `is_cancelled()` calls `hide_ptt_overlay` |
 | `src-tauri/src/commands/ptt.rs` | Replaced `app_handle.emit()` with `emit_ptt_status`; added `hide_ptt_overlay` call after cancel; removed unused imports |
 | `src/App.tsx` | Extracted `MainApp` component; `App` checks `IS_PTT_OVERLAY` constant and renders `<PttOverlay />` if true, else `<MainApp />` |
 | `src/components/PttOverlay.tsx` | Standalone overlay component: `ptt-status` listener, animated waveform bars, phase labels; Cancel hides locally after success; timer managed via `useRef`; `onPointerDown` drag via `startDragging()`; buttons outside drag area |
+
+## Third fix round applied after second QA (PR #17 review — round 3)
+
+### Root cause
+
+Manual QA after fix round 2 found: when the overlay was dragged while recording, the final text was not inserted into Notepad.
+
+**Root cause**: Dragging the overlay window (even with `WS_EX_NOACTIVATE`) can change the OS foreground window before `InsertionService::insert_text()` fires `enigo` SendInput (Ctrl+V). `SendInput` targets the currently focused window, so if Notepad is no longer foreground at paste time, the text lands nowhere or in the wrong app.
+
+### Fix applied (round 3)
+
+**Capture foreground HWND before showing overlay; restore before insertion**
+
+- Added `pub fn capture_foreground_window() -> isize` to `ptt.rs` — calls `GetForegroundWindow()` on Windows, returns 0 elsewhere.
+- Added `fn restore_foreground_window(hwnd: isize)` to `ptt.rs` — calls `IsWindow(hwnd)` then `SetForegroundWindow(hwnd)` on Windows if the window still exists; no-op on non-Windows or if hwnd is 0.
+- Added `target_hwnd: Arc<Mutex<Option<isize>>>` to `PttState`. Initialized to `None`.
+- In `ptt_start()` (`lib.rs`): after the CAS guard confirms we're starting, **before** `overlay.show()`, captures `GetForegroundWindow()` and stores it in `ptt.target_hwnd`.
+- In `run_pipeline()` (`ptt.rs`): immediately before `InsertionService::insert_text()`, reads `target_hwnd`, calls `restore_foreground_window(hwnd)`, then sleeps 50 ms to let the OS complete the focus switch before `enigo` fires Ctrl+V.
+- Win32 FFI uses `#[link(name = "user32")]` with `extern "system"` declarations. HWND stored as `isize` (pointer-sized integer) to be `Send + Sync` without additional unsafe impls.
+- `GetWindowText`, process name, window title, and screen contents are never called or read.
+- If `SetForegroundWindow` fails (OS restriction), insertion still runs and text lands in clipboard as fallback.
 
 ## Privacy and safety guarantees
 
 - `ptt-status` events contain only `phase` (a keyword string) and `message` (a generic status string such as "Transcribing…"). Transcript text, clipboard contents, and audio data are never included — this is enforced by existing `ptt.rs` code, unchanged.
 - `PttOverlay` renders only `phase` and `message`. It has no access to history, audio buffers, clipboard, or transcript text.
 - The only Tauri command called by the overlay is `cancel_ptt`.
+- `target_hwnd` stores only an opaque integer handle for the current PTT session. It is overwritten on each PTT start. No window title, process name, screen content, or active-app text is read at any point.
 - No logging, no telemetry, no network calls, no screen reading, no OCR.
 
 ## Checks run
@@ -174,7 +196,7 @@ Added `pub fn hide_ptt_overlay(app)` and `pub fn hide_ptt_overlay_after(app, del
 |---|---|
 | `cargo fmt --check` | ✅ Pass |
 | `cargo clippy --all-targets --all-features -- -D warnings` | ✅ Pass (0 warnings) |
-| `cargo test` | ✅ 152/152 pass (round 2) |
+| `cargo test` | ✅ 152/152 pass (round 3) |
 | `npm run lint` (`tsc --noEmit`) | ✅ 0 errors |
 | `npm run build` | ✅ Pass (307.85 kB JS) |
 | `pwsh scripts/quality-check.ps1` | ✅ All checks passed |
@@ -221,6 +243,19 @@ The following tests must be verified with a real Tauri build and a configured Wh
 6. **Expected**: final text still inserts into Notepad.
 7. Note: position resets to bottom-centre on next app launch.
 
+### Drag-then-insert focus regression (new — round 3 fix)
+
+1. Open Notepad. Click inside it.
+2. Press PTT shortcut. Overlay appears.
+3. **While recording**, drag the overlay to a different position on screen.
+4. Speak a short sentence.
+5. Press PTT shortcut again to stop.
+6. **Expected**: overlay transitions through all phases and disappears after Done.
+7. **Expected**: spoken text inserts into Notepad — not into the overlay or any other window.
+8. **Expected**: no window title, process name, or screen content was read by the backend.
+9. Confirm Cancel still stops recording and hides overlay.
+10. Confirm no text is inserted after Cancel.
+
 ### open_dictation regression
 
 1. Change Shortcut behavior to `open_dictation`.
@@ -248,6 +283,7 @@ The following tests must be verified with a real Tauri build and a configured Wh
 - No transcript text, clipboard contents, or audio data logged or sent.
 - No cloud storage, no model downloads, no account/login/sync.
 - No active-app content reading, no screen capture, no OCR.
+- `target_hwnd` stores only an opaque `isize` handle (no title, no process name). `GetWindowText` is never called. Handle is overwritten on each PTT start and lives only in-memory for the current session.
 - No unsafe shell commands.
 - `AudioService`, `TranscriptionService`, `CleanupService`, `InsertionService`, `PttPipelineService`, `HistoryService`, privacy logic, and provider behavior are all unchanged.
 - No real live transcription implemented.

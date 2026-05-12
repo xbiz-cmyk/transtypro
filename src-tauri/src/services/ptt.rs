@@ -23,6 +23,56 @@ use crate::services::{
     CleanupService, HistoryService, InsertionService, ProvidersService, TranscriptionService,
 };
 
+// ─────────────────────── Windows focus helpers ───────────────────────────────
+
+// Raw Win32 FFI — only compiled on Windows.
+// HWND is stored as isize (pointer-sized integer) so it can cross thread
+// boundaries inside Arc<Mutex<…>> without requiring unsafe Send impls.
+// Only GetForegroundWindow / IsWindow / SetForegroundWindow are used; window
+// title, process name, and contents are never read.
+#[cfg(target_os = "windows")]
+#[link(name = "user32")]
+extern "system" {
+    fn GetForegroundWindow() -> isize;
+    fn IsWindow(hwnd: isize) -> i32;
+    fn SetForegroundWindow(hwnd: isize) -> i32;
+}
+
+/// Capture the current foreground window handle as an opaque integer.
+/// Returns 0 on non-Windows or if no foreground window exists.
+/// The handle is used only to restore focus before insertion; no title or
+/// contents are read.
+pub fn capture_foreground_window() -> isize {
+    #[cfg(target_os = "windows")]
+    {
+        unsafe { GetForegroundWindow() }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        0
+    }
+}
+
+/// Restore focus to the window identified by `hwnd`.
+/// No-op if `hwnd` is 0, the window no longer exists, or on non-Windows.
+fn restore_foreground_window(hwnd: isize) {
+    #[cfg(target_os = "windows")]
+    {
+        if hwnd == 0 {
+            return;
+        }
+        unsafe {
+            if IsWindow(hwnd) != 0 {
+                SetForegroundWindow(hwnd);
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = hwnd;
+    }
+}
+
 // ─────────────────────── Status event helper ─────────────────────────────────
 
 /// Emit a PTT status event explicitly to both the main window and the ptt-overlay window.
@@ -91,6 +141,12 @@ pub struct PttState {
     pub samples: Arc<Mutex<Vec<f32>>>,
     pub sample_rate: Arc<Mutex<u32>>,
     pub channels: Arc<Mutex<u16>>,
+    /// Opaque foreground window handle captured immediately before the PTT
+    /// overlay is shown. Used only to restore focus before clipboard paste so
+    /// the text lands in the correct app even if the overlay was dragged.
+    /// Stored as isize (pointer-sized integer) to be Send + Sync.
+    /// Window title, process name, and contents are never read.
+    pub target_hwnd: Arc<Mutex<Option<isize>>>,
 }
 
 impl PttState {
@@ -208,6 +264,18 @@ impl PttPipelineService {
         // ── Step 4: Insert ──────────────────────────────────────────────────
         ptt.set_phase(PttPhase::Inserting);
         emit_ptt_status(handle, "inserting", "Inserting…");
+
+        // Restore focus to the original target window before pasting.
+        // Dragging the overlay can shift the OS foreground away from the user's
+        // app. We captured the HWND in ptt_start() before showing the overlay.
+        // Only an opaque handle is used — no title or contents are read.
+        let target_hwnd = ptt.target_hwnd.lock().ok().and_then(|g| *g).unwrap_or(0);
+        restore_foreground_window(target_hwnd);
+        if target_hwnd != 0 {
+            // Brief pause so the OS can complete the focus transfer before
+            // enigo fires SendInput (Ctrl+V) at the now-focused window.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
         // Call InsertionService directly — NOT via the insert_text Tauri command.
         // The Tauri command minimizes/restores the window which is wrong for PTT
@@ -353,6 +421,7 @@ mod tests {
             samples: Arc::new(Mutex::new(Vec::new())),
             sample_rate: Arc::new(Mutex::new(44100)),
             channels: Arc::new(Mutex::new(1)),
+            target_hwnd: Arc::new(Mutex::new(None)),
         }
     }
 

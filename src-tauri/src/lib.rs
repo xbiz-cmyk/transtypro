@@ -17,7 +17,9 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-use crate::services::ptt::{emit_ptt_status, PttPhase, PttPipelineService, PttState};
+use crate::services::ptt::{
+    capture_foreground_window, emit_ptt_status, PttPhase, PttPipelineService, PttState,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -72,6 +74,7 @@ pub fn run() {
                 samples: samples_arc,
                 sample_rate: sample_rate_arc,
                 channels: channels_arc,
+                target_hwnd: Arc::new(Mutex::new(None)),
             });
 
             // Phase 7 / Phase 9 / Phase 10: Register the configured global shortcut.
@@ -290,6 +293,15 @@ fn ptt_start(app: &tauri::AppHandle) {
 
     if !should_start {
         return;
+    }
+
+    // Capture the foreground window BEFORE showing the overlay.
+    // This preserves the user's active target so we can restore focus
+    // immediately before clipboard paste — even if the overlay was dragged.
+    // Only an opaque handle is stored; no title or contents are read.
+    let hwnd = capture_foreground_window();
+    if let Ok(mut guard) = ptt.target_hwnd.lock() {
+        *guard = if hwnd != 0 { Some(hwnd) } else { None };
     }
 
     // Show ptt-overlay before spawning the recording thread.
