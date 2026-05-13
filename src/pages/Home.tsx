@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStatusSummary, ping } from "../lib/api";
 import type { StatusSummary } from "../lib/types";
-import Card, { CardHeader } from "../components/ui/Card";
-import Badge from "../components/ui/Badge";
-import ErrorMessage from "../components/ui/ErrorMessage";
 import Logo from "../components/Logo";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 export default function Home() {
   const [status, setStatus] = useState<StatusSummary | null>(null);
@@ -20,7 +18,6 @@ export default function Home() {
       } catch {
         setBackendOk(false);
       }
-
       try {
         const summary = await getStatusSummary();
         setStatus(summary);
@@ -34,168 +31,172 @@ export default function Home() {
   const isLocalOnly = status ? status.privacy_mode === "local-only" : true;
 
   return (
-    <div id="home-page" className="p-8 max-w-3xl">
-      <div className="flex items-center gap-3 mb-1">
-        <Logo size={28} />
-        <h1 className="text-2xl font-semibold text-(--color-text-primary)">
-          transtypro
+    <div id="home-page" className="p-8 max-w-xl">
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <div className="mb-10">
+        <Logo size={38} className="mb-5" />
+        <h1 className="text-4xl font-bold text-(--color-text-primary) tracking-tight leading-tight mb-3">
+          Speak. Clean. Insert.
         </h1>
+        <p className="text-base text-(--color-text-secondary) mb-7 leading-relaxed">
+          Fast local dictation for every desktop app.
+        </p>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/dictation"
+            id="home-start-dictating"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-(--radius-btn) bg-(--color-brand-500) hover:bg-(--color-brand-400) text-white text-sm font-semibold transition-colors duration-150 shadow-sm"
+          >
+            Start dictating
+            <ArrowRightIcon />
+          </Link>
+          <Link
+            to="/settings"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-(--radius-btn) bg-transparent hover:bg-(--color-surface-raised) text-(--color-text-secondary) hover:text-(--color-text-primary) border border-(--color-border-default) text-sm font-medium transition-colors duration-150"
+          >
+            Configure push-to-talk
+          </Link>
+        </div>
       </div>
-      <p className="text-sm text-(--color-text-secondary) mb-8">
-        Speak instead of type — local-first AI dictation for your desktop.
-      </p>
 
       {error && <ErrorMessage message={error} className="mb-6" />}
 
-      {/* Status cards row */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {/* Active mode card */}
-        <Card>
-          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
-            Active mode
-          </p>
-          <p className="text-lg font-semibold text-(--color-text-primary)">
-            {status?.active_mode ?? "Smart"}
-          </p>
-          <Link
-            to="/modes"
-            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
-          >
-            Change mode →
-          </Link>
-        </Card>
-
-        {/* Privacy mode card */}
-        <Card>
-          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
-            Privacy mode
-          </p>
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${isLocalOnly ? "bg-(--color-status-success)" : "bg-(--color-status-warning)"}`}
-            />
-            <p className="text-lg font-semibold text-(--color-text-primary)">
-              {isLocalOnly ? "Local only" : "Cloud enabled"}
-            </p>
-          </div>
-          <Link
-            to="/privacy"
-            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
-          >
-            View privacy →
-          </Link>
-        </Card>
-
-        {/* Last transcription card */}
-        <Card>
-          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
-            History
-          </p>
-          <p className="text-sm font-semibold text-(--color-text-primary)">
-            {status && status.history_count > 0
-              ? `${status.history_count} ${status.history_count === 1 ? "session" : "sessions"}`
-              : "No sessions yet"}
-          </p>
-          <Link
-            to="/history"
-            className="text-xs text-(--color-brand-300) hover:underline mt-1 block"
-          >
-            View history →
-          </Link>
-        </Card>
-
-        {/* Quick start card */}
-        <Card>
-          <p className="text-xs text-(--color-text-muted) uppercase tracking-wider mb-2">
-            Quick start
-          </p>
-          <p className="text-sm text-(--color-text-secondary) mb-3">
-            Press your shortcut or open Dictation to record your first session.
-          </p>
-          <Link
-            to="/dictation"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-(--radius-btn) bg-(--color-brand-500) text-white text-sm font-medium hover:bg-(--color-brand-400) transition-colors"
-          >
-            Start dictating →
-          </Link>
-        </Card>
+      {/* ── Status chips ─────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2 mb-8">
+        <StatusChip
+          label="Backend"
+          value={backendOk === null ? "…" : backendOk ? "Connected" : "Offline"}
+          state={backendOk === null ? "loading" : backendOk ? "ok" : "error"}
+        />
+        <StatusChip
+          label="Model"
+          value={status ? (status.transcription_ready ? "Ready" : "Not configured") : "…"}
+          state={status === null ? "loading" : status.transcription_ready ? "ok" : "warn"}
+        />
+        <StatusChip
+          label="Privacy"
+          value={isLocalOnly ? "Local only" : "Cloud enabled"}
+          state={isLocalOnly ? "ok" : "warn"}
+        />
+        {status !== null && (
+          <StatusChip
+            label="Sessions"
+            value={String(status.history_count)}
+            state="info"
+          />
+        )}
+        {status?.cleanup_provider && (
+          <StatusChip
+            label="Cleanup"
+            value={status.cleanup_provider}
+            state="info"
+          />
+        )}
       </div>
 
-      {/* System status */}
-      <Card>
-        <CardHeader>System status</CardHeader>
-        <div className="space-y-3">
-          <StatusRow
-            label="Backend connection"
-            value={
-              backendOk === null
-                ? "Checking..."
-                : backendOk
-                  ? "Connected"
-                  : "Not connected"
-            }
-            state={
-              backendOk === null ? "loading" : backendOk ? "ok" : "error"
-            }
-          />
-          <StatusRow
-            label="Transcription model"
-            value={
-              status?.transcription_ready ? "Ready" : "Not configured"
-            }
-            state={status?.transcription_ready ? "ok" : "info"}
-          />
-          <StatusRow
-            label="Cleanup provider"
-            value={status?.cleanup_provider ?? "None"}
-            state="info"
-          />
-          <StatusRow
-            label="History entries"
-            value={String(status?.history_count ?? 0)}
-            state="info"
-          />
-        </div>
-      </Card>
-
-      {/* Transcript model badge */}
-      <div className="mt-4 flex items-center gap-2">
-        {status?.transcription_ready ? (
-          <Badge variant="success">Model ready</Badge>
-        ) : (
-          <Badge variant="muted">No model — configure in Models</Badge>
-        )}
-        {isLocalOnly && <Badge variant="success">Local only</Badge>}
+      {/* ── Quick links ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <QuickLink
+          to="/history"
+          label="History"
+          description={
+            status && status.history_count > 0
+              ? `${status.history_count} ${status.history_count === 1 ? "session" : "sessions"} recorded`
+              : "No sessions yet"
+          }
+        />
+        <QuickLink
+          to="/modes"
+          label="Active mode"
+          description={
+            status?.active_mode
+              ? `${capitalize(status.active_mode)} mode`
+              : "Smart mode"
+          }
+        />
+        <QuickLink
+          to="/privacy"
+          label="Privacy"
+          description={isLocalOnly ? "Local only — no cloud calls" : "Cloud enabled"}
+        />
+        <QuickLink
+          to="/diagnostics"
+          label="Diagnostics"
+          description="Check system health"
+        />
       </div>
     </div>
   );
 }
 
-function StatusRow({
+// ── Sub-components ────────────────────────────────────────────────
+
+function StatusChip({
   label,
   value,
   state,
 }: {
   label: string;
   value: string;
-  state: "ok" | "error" | "info" | "loading";
+  state: "ok" | "error" | "warn" | "info" | "loading";
 }) {
   const dotColor = {
-    ok: "bg-(--color-status-success)",
-    error: "bg-(--color-status-error)",
-    info: "bg-(--color-status-info)",
-    loading: "bg-(--color-status-warning) animate-pulse",
+    ok:      "bg-(--color-status-success)",
+    error:   "bg-(--color-status-error)",
+    warn:    "bg-(--color-status-warning)",
+    info:    "bg-(--color-brand-400)",
+    loading: "bg-(--color-text-muted) animate-pulse",
   }[state];
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-        <span className="text-sm text-(--color-text-secondary)">{label}</span>
-      </div>
-      <span className="text-sm text-(--color-text-primary) font-medium">
-        {value}
-      </span>
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--color-surface-raised) border border-(--color-border-default) text-xs select-none">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} aria-hidden="true" />
+      <span className="text-(--color-text-muted)">{label}</span>
+      <span className="text-(--color-text-primary) font-medium">{value}</span>
     </div>
   );
+}
+
+function QuickLink({
+  to,
+  label,
+  description,
+}: {
+  to: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex flex-col gap-1 p-4 rounded-(--radius-card) bg-(--color-surface-raised) border border-(--color-border-default) hover:border-(--color-brand-500)/25 hover:bg-(--color-surface-overlay) transition-colors duration-150"
+    >
+      <span className="text-sm font-medium text-(--color-text-secondary) group-hover:text-(--color-brand-300) transition-colors duration-100">
+        {label} <span className="opacity-50">→</span>
+      </span>
+      <span className="text-xs text-(--color-text-muted) leading-snug">{description}</span>
+    </Link>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

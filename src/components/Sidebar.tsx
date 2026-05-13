@@ -33,22 +33,22 @@ const bottomNavItems: NavItem[] = [
 ];
 
 const iconMap: Record<string, React.ReactElement> = {
-  home:        <HomeIcon size={16} />,
-  dictation:   <DictationIcon size={16} />,
-  history:     <HistoryIcon size={16} />,
-  modes:       <ModesIcon size={16} />,
-  vocabulary:  <VocabularyIcon size={16} />,
-  models:      <ModelsIcon size={16} />,
-  providers:   <ProvidersIcon size={16} />,
-  privacy:     <PrivacyIcon size={16} />,
-  diagnostics: <DiagnosticsIcon size={16} />,
-  settings:    <SettingsIcon size={16} />,
-  about:       <AboutIcon size={16} />,
+  home:        <HomeIcon size={15} />,
+  dictation:   <DictationIcon size={15} />,
+  history:     <HistoryIcon size={15} />,
+  modes:       <ModesIcon size={15} />,
+  vocabulary:  <VocabularyIcon size={15} />,
+  models:      <ModelsIcon size={15} />,
+  providers:   <ProvidersIcon size={15} />,
+  privacy:     <PrivacyIcon size={15} />,
+  diagnostics: <DiagnosticsIcon size={15} />,
+  settings:    <SettingsIcon size={15} />,
+  about:       <AboutIcon size={15} />,
 };
 
 function NavIcon({ name }: { name: string }) {
   return (
-    <span className="w-5 flex items-center justify-center shrink-0">
+    <span className="w-4 flex items-center justify-center shrink-0">
       {iconMap[name] ?? null}
     </span>
   );
@@ -56,21 +56,31 @@ function NavIcon({ name }: { name: string }) {
 
 function NavItemLink({ item }: { item: NavItem }) {
   return (
-    <li key={item.path}>
+    <li>
       <NavLink
         to={item.path}
         end={item.path === "/"}
         id={`nav-${item.label.toLowerCase()}`}
         className={({ isActive }) =>
-          `flex items-center gap-3 px-3 py-2.5 rounded-(--radius-btn) text-sm transition-colors duration-150 ${
+          `relative flex items-center gap-2.5 px-3 py-2 rounded-(--radius-btn) text-sm transition-colors duration-100 ${
             isActive
-              ? "bg-(--color-surface-overlay) text-(--color-brand-300) font-medium"
-              : "text-(--color-text-secondary) hover:bg-(--color-surface-raised) hover:text-(--color-text-primary)"
+              ? "bg-(--color-brand-500)/10 text-(--color-brand-300) font-medium"
+              : "text-(--color-text-muted) hover:bg-(--color-surface-raised)/70 hover:text-(--color-text-secondary)"
           }`
         }
       >
-        <NavIcon name={item.icon} />
-        <span>{item.label}</span>
+        {({ isActive }: { isActive: boolean }) => (
+          <>
+            {isActive && (
+              <span
+                className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 bg-(--color-brand-400) rounded-r-full"
+                aria-hidden="true"
+              />
+            )}
+            <NavIcon name={item.icon} />
+            <span>{item.label}</span>
+          </>
+        )}
       </NavLink>
     </li>
   );
@@ -80,37 +90,42 @@ export default function Sidebar() {
   return (
     <aside
       id="sidebar"
-      className="fixed top-0 left-0 h-screen w-(--spacing-sidebar) bg-(--color-surface-sidebar) border-r border-(--color-border-default) flex flex-col z-10"
+      className="fixed top-0 left-0 h-screen w-(--spacing-sidebar) bg-(--color-surface-sidebar) border-r border-(--color-border-subtle) flex flex-col z-10"
     >
       {/* Brand header */}
-      <div className="px-5 py-5 border-b border-(--color-border-subtle) flex items-center gap-3">
-        <Logo size={22} />
+      <div className="px-4 py-4 border-b border-(--color-border-subtle) flex items-center gap-3">
+        <Logo size={24} />
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-(--color-text-primary) leading-none">
+          <h1 className="text-sm font-semibold tracking-tight text-(--color-text-primary) leading-none">
             transtypro
           </h1>
-          <p className="text-xs text-(--color-text-muted) mt-0.5">
+          <p className="text-[10px] text-(--color-text-muted) mt-0.5 leading-none">
             Speak instead of type
           </p>
         </div>
       </div>
 
       {/* Main navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
-        <ul className="space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-2 px-2">
+        <ul className="space-y-px">
           {mainNavItems.map((item) => (
             <NavItemLink key={item.path} item={item} />
           ))}
         </ul>
       </nav>
 
-      {/* Bottom navigation (privacy, settings, about) */}
-      <div className="py-3 px-2 border-t border-(--color-border-subtle)">
-        <ul className="space-y-0.5">
+      {/* Bottom navigation */}
+      <div className="py-2 px-2 border-t border-(--color-border-subtle)">
+        <ul className="space-y-px">
           {bottomNavItems.map((item) => (
             <NavItemLink key={item.path} item={item} />
           ))}
         </ul>
+      </div>
+
+      {/* Version footer */}
+      <div className="px-4 py-2.5 border-t border-(--color-border-subtle)">
+        <p className="text-[10px] text-(--color-text-muted) tabular-nums">v0.11 preview</p>
       </div>
     </aside>
   );
