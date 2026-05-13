@@ -14,14 +14,14 @@ export default function Logo({ size = 22, className }: LogoProps) {
       className={className}
       aria-hidden="true"
     >
-      {/* Speech waveform — short / tall / medium bars, left to right */}
-      <rect x="2.5"  y="10"   width="2.5" height="4"  rx="1.25" fill="var(--color-brand-300)" opacity="0.55" />
-      <rect x="6.5"  y="4.5"  width="2.5" height="15" rx="1.25" fill="var(--color-brand-400)" />
-      <rect x="10.5" y="7"    width="2.5" height="10" rx="1.25" fill="var(--color-brand-400)" opacity="0.75" />
-      {/* Text cursor — stem + top/bottom serifs */}
-      <rect x="16"    y="5"     width="1.5" height="14"  rx="0.75"  fill="var(--color-text-primary)" opacity="0.8" />
-      <rect x="14.75" y="5"     width="4"   height="1.25" rx="0.625" fill="var(--color-text-primary)" opacity="0.8" />
-      <rect x="14.75" y="17.75" width="4"   height="1.25" rx="0.625" fill="var(--color-text-primary)" opacity="0.8" />
+      {/* Speech waveform — short / tall / medium bars */}
+      <rect x="2"   y="10"  width="3" height="4"  rx="1.5" fill="var(--color-brand-300)" />
+      <rect x="7"   y="4"   width="3" height="16" rx="1.5" fill="var(--color-brand-500)" />
+      <rect x="12"  y="7"   width="3" height="10" rx="1.5" fill="var(--color-brand-400)" />
+      {/* Text cursor — I-beam with serifs */}
+      <rect x="18.5" y="4.5"   width="2"   height="15"  rx="1"     fill="var(--color-text-primary)" opacity="0.75" />
+      <rect x="16.75" y="4.5"  width="5.5" height="1.5"  rx="0.75" fill="var(--color-text-primary)" opacity="0.75" />
+      <rect x="16.75" y="18"   width="5.5" height="1.5"  rx="0.75" fill="var(--color-text-primary)" opacity="0.75" />
     </svg>
   );
 }

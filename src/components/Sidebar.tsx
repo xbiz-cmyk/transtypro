@@ -62,10 +62,10 @@ function NavItemLink({ item }: { item: NavItem }) {
         end={item.path === "/"}
         id={`nav-${item.label.toLowerCase()}`}
         className={({ isActive }) =>
-          `relative flex items-center gap-2.5 px-3 py-2 rounded-(--radius-btn) text-sm transition-colors duration-100 ${
+          `relative flex items-center gap-2.5 px-3 py-[7px] rounded-(--radius-btn) text-sm transition-colors duration-100 ${
             isActive
-              ? "bg-(--color-brand-500)/10 text-(--color-brand-300) font-medium"
-              : "text-(--color-text-muted) hover:bg-(--color-surface-raised)/70 hover:text-(--color-text-secondary)"
+              ? "bg-(--color-brand-500)/15 text-(--color-brand-300) font-semibold"
+              : "text-(--color-text-muted) hover:bg-(--color-surface-raised) hover:text-(--color-text-primary)"
           }`
         }
       >
@@ -73,7 +73,7 @@ function NavItemLink({ item }: { item: NavItem }) {
           <>
             {isActive && (
               <span
-                className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 bg-(--color-brand-400) rounded-r-full"
+                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] bg-(--color-brand-400) rounded-r-full"
                 aria-hidden="true"
               />
             )}
@@ -93,13 +93,13 @@ export default function Sidebar() {
       className="fixed top-0 left-0 h-screen w-(--spacing-sidebar) bg-(--color-surface-sidebar) border-r border-(--color-border-subtle) flex flex-col z-10"
     >
       {/* Brand header */}
-      <div className="px-4 py-4 border-b border-(--color-border-subtle) flex items-center gap-3">
-        <Logo size={24} />
+      <div className="px-4 py-[14px] border-b border-(--color-border-subtle) flex items-center gap-3">
+        <Logo size={26} />
         <div>
-          <h1 className="text-sm font-semibold tracking-tight text-(--color-text-primary) leading-none">
+          <h1 className="text-[13px] font-bold tracking-tight text-(--color-text-primary) leading-none">
             transtypro
           </h1>
-          <p className="text-[10px] text-(--color-text-muted) mt-0.5 leading-none">
+          <p className="text-[10px] text-(--color-text-muted) mt-[3px] leading-none">
             Speak instead of type
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function Sidebar() {
 
       {/* Main navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2">
-        <ul className="space-y-px">
+        <ul className="space-y-0.5">
           {mainNavItems.map((item) => (
             <NavItemLink key={item.path} item={item} />
           ))}
@@ -116,7 +116,7 @@ export default function Sidebar() {
 
       {/* Bottom navigation */}
       <div className="py-2 px-2 border-t border-(--color-border-subtle)">
-        <ul className="space-y-px">
+        <ul className="space-y-0.5">
           {bottomNavItems.map((item) => (
             <NavItemLink key={item.path} item={item} />
           ))}
