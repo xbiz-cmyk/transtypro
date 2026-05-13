@@ -262,6 +262,7 @@ impl PttPipelineService {
             stripped_text.clone()
         } else {
             self.try_cleanup(&stripped_text, ptt, handle)
+                .map(|t| sanitize_cleanup_output(&t))
                 .unwrap_or_else(|| stripped_text.clone())
         };
 
@@ -373,6 +374,12 @@ impl PttPipelineService {
 
         ptt.set_phase(PttPhase::Cleaning);
         emit_ptt_status(handle, "cleaning", "Cleaning text…");
+        // Give WebView2's IPC bridge time to deliver and render the "cleaning"
+        // event before the blocking HTTP call to the LLM starts. Without this,
+        // fast local-LLM responses can cause the cleaning phase to be invisible
+        // in the overlay (React batches the cleaning + inserting state updates
+        // into a single render showing only "inserting").
+        std::thread::sleep(std::time::Duration::from_millis(50));
 
         match CleanupService::new(self.db.clone()).cleanup(raw_text, &provider_id) {
             Ok(r) => Some(r.cleaned_text),
@@ -454,6 +461,77 @@ pub(crate) fn strip_whisper_timestamps(text: &str) -> String {
         }
     }
     parts.join(" ")
+}
+
+// ─────────────────────── Cleanup output sanitization ─────────────────────────
+
+/// Strip LLM boilerplate from cleanup output before PTT insertion.
+///
+/// LLM providers (Ollama, OpenAI-compatible) frequently wrap the cleaned text
+/// in explanatory prefixes or surrounding quotes. This function removes those
+/// so only the intended text is inserted into the user's active application.
+///
+/// Handled cases (case-insensitive prefix match):
+/// - "Here is the cleaned text:\n\"actual text\""  → "actual text"
+/// - "Cleaned text: actual text"                    → "actual text"
+/// - "\"actual text\""                              → actual text
+/// - "Actual text."                                 → "Actual text."  (unchanged)
+///
+/// Falls back to the trimmed original if sanitization produces an empty string.
+pub(crate) fn sanitize_cleanup_output(text: &str) -> String {
+    const BOILERPLATE: &[&str] = &[
+        "here is the cleaned text:",
+        "cleaned text:",
+        "the cleaned text is:",
+        "here is the cleaned transcript:",
+        "cleaned transcript:",
+    ];
+
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return text.to_string();
+    }
+
+    // Strip a leading boilerplate prefix (case-insensitive).
+    // Handles both single-line ("Cleaned text: actual") and multi-line
+    // ("Cleaned text:\n\n\"actual\"") formats because .trim() collapses
+    // the newlines and surrounding whitespace after slicing.
+    let lower = trimmed.to_lowercase();
+    let candidate = BOILERPLATE
+        .iter()
+        .find_map(|bp| {
+            if lower.starts_with(bp) {
+                let rest = trimmed[bp.len()..].trim();
+                if rest.is_empty() {
+                    None // boilerplate-only with nothing after — fall through
+                } else {
+                    Some(rest)
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or(trimmed);
+
+    // Strip surrounding single or double quotes wrapping the entire string.
+    let bytes = candidate.as_bytes();
+    let len = bytes.len();
+    if len >= 2 {
+        let first = bytes[0];
+        let last = bytes[len - 1];
+        if (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') {
+            let inner = candidate[1..len - 1].trim();
+            if !inner.is_empty() {
+                return inner.to_string();
+            }
+        }
+    }
+
+    if candidate.is_empty() {
+        trimmed.to_string()
+    } else {
+        candidate.to_string()
+    }
 }
 
 // ─────────────────────────────── Tests ───────────────────────────────────────
@@ -631,5 +709,58 @@ mod tests {
     #[test]
     fn test_strip_whisper_timestamps_empty_input() {
         assert_eq!(strip_whisper_timestamps(""), "");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_boilerplate_multiline() {
+        // Real Ollama response: boilerplate line, blank line, quoted text.
+        let input = "Here is the cleaned text:\n\n\"Okay, let's test this.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_boilerplate_inline() {
+        let input = "Cleaned text: Okay, let's test this.";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_surrounding_double_quotes() {
+        let input = "\"Okay, let's test this.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_surrounding_single_quotes() {
+        let input = "'Okay, let\\'s test this.'";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let\\'s test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_preserves_normal_text() {
+        let input = "Okay, let's test the best quality mode.";
+        assert_eq!(
+            sanitize_cleanup_output(input),
+            "Okay, let's test the best quality mode."
+        );
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_fallback_when_boilerplate_only() {
+        // Boilerplate with nothing after — should fall back to trimmed original.
+        let input = "Here is the cleaned text:";
+        assert_eq!(sanitize_cleanup_output(input), "Here is the cleaned text:");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_case_insensitive_prefix() {
+        let input = "CLEANED TEXT: Hello world.";
+        assert_eq!(sanitize_cleanup_output(input), "Hello world.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_transcript_variant() {
+        let input = "Here is the cleaned transcript:\n\"Meeting notes follow.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Meeting notes follow.");
     }
 }

@@ -37,7 +37,7 @@ Replace prototype-level styling and UX with a polished product:
 | `src-tauri/src/services/privacy.rs` | Edit (1 line) | Minimal forced touch: add `ptt_output_mode` to test struct literal for struct completeness |
 | `src-tauri/src/lib.rs` | Edit (4 lines) | Make `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` `pub(crate)` |
 | `src-tauri/src/commands/shortcut.rs` | Edit | Replace hardcoded `open_dictation` handler with full behavior-aware handler (QA fix) |
-| `src-tauri/src/services/ptt.rs` | Edit | Add `strip_whisper_timestamps` helper + 6 tests; apply to pipeline before insertion (QA fix) |
+| `src-tauri/src/services/ptt.rs` | Edit | Add `strip_whisper_timestamps` + 6 tests; `sanitize_cleanup_output` + 8 tests; 50ms cleaning-phase emit pause; apply both in pipeline (QA fixes) |
 | `src/pages/Settings.tsx` | Edit | Fix recorder "Use this": only go idle on success; stay in captured for error retry (QA fix) |
 
 ---
@@ -186,8 +186,9 @@ Phase label comes from the backend `message` field as before. Only the recording
 | `db/migrations.rs` | `test_migration_006_adds_ptt_output_mode_column`, `test_migration_006_default_value`, `test_migration_006_idempotent` |
 | `db/repositories/settings_repo.rs` | `test_settings_repo_ptt_output_mode_default`, `test_settings_repo_ptt_output_mode_round_trip`, `test_settings_repo_ptt_output_mode_preserves_other_fields` |
 | `services/ptt.rs` | `test_strip_whisper_timestamps_single_line`, `test_strip_whisper_timestamps_multiple_lines`, `test_strip_whisper_timestamps_plain_text_unchanged`, `test_strip_whisper_timestamps_blank_audio_skipped`, `test_strip_whisper_timestamps_mixed_blank_and_speech`, `test_strip_whisper_timestamps_empty_input` |
+| `services/ptt.rs` | `test_sanitize_cleanup_output_removes_boilerplate_multiline`, `test_sanitize_cleanup_output_removes_boilerplate_inline`, `test_sanitize_cleanup_output_removes_surrounding_double_quotes`, `test_sanitize_cleanup_output_removes_surrounding_single_quotes`, `test_sanitize_cleanup_output_preserves_normal_text`, `test_sanitize_cleanup_output_fallback_when_boilerplate_only`, `test_sanitize_cleanup_output_case_insensitive_prefix`, `test_sanitize_cleanup_output_transcript_variant` |
 
-**Total: 164 tests, 0 failed** (up from 152)
+**Total: 172 tests, 0 failed** (up from 152)
 
 ### Verification commands
 
@@ -196,7 +197,7 @@ Phase label comes from the backend `message` field as before. Only the recording
 | `cargo fmt` | ✅ Pass |
 | `cargo fmt --check` | ✅ Pass (0 differences) |
 | `cargo clippy --all-targets --all-features -- -D warnings` | ✅ Pass (0 warnings) |
-| `cargo test` | ✅ 164/164 pass |
+| `cargo test` | ✅ 172/172 pass |
 | `npm run lint` (`tsc --noEmit`) | ✅ 0 errors |
 | `npm run build` | ✅ Pass (315.83 kB JS) |
 | `pwsh scripts/quality-check.ps1` | ✅ All checks passed |
@@ -277,7 +278,7 @@ This section documents the expected behavior. Live QA results should be confirme
 
 ## QA fixes (post-initial-implementation)
 
-Four issues were found during manual QA and fixed before merge:
+Six issues were found during manual QA and fixed before merge:
 
 ### Fix 1 — Runtime shortcut handler not behavior-aware
 
@@ -304,6 +305,24 @@ The timer implementation in `PttOverlay.tsx` was structurally correct. The QA fa
 ### Fix 5 — Titlebar icon (deferred to Phase 12)
 
 The `tauri.conf.json` already references `icons/icon.ico` and `icons/icon.png` correctly. The visible issue is that `icon.ico` contains the default Tauri scaffold icon, not a transtypro logo. Replacing it requires generating a multi-resolution `.ico` binary (16/32/48/256 px layers). Deferred to Phase 12 packaging.
+
+### Fix 6 — Best-quality mode inserts LLM boilerplate (second QA round)
+
+**Root cause:** `CleanupService::cleanup()` returns the LLM's response verbatim. Ollama (and other LLMs) frequently wrap cleaned text in explanatory prefixes ("Here is the cleaned text:") and surrounding quotes. The PTT pipeline passed this verbatim to `InsertionService`.
+
+**Fix:** Added `sanitize_cleanup_output(text: &str) -> String` in `ptt.rs` (local to the PTT pipeline; `CleanupService` is unchanged). Applied via `.map(|t| sanitize_cleanup_output(&t))` on the result of `try_cleanup()` before `final_text` is assigned. Sanitization handles:
+- Case-insensitive boilerplate prefix stripping (5 variants: "Here is the cleaned text:", "Cleaned text:", etc.)
+- Stripping surrounding single or double quotes from the entire result
+- Both single-line and multi-line formats (e.g. prefix on line 1, quoted text on line 2)
+- Safe fallback: if sanitization produces empty string, the original trimmed text is returned
+
+8 unit tests added (164 → 172 total).
+
+### Fix 7 — Cleaning phase not visible in overlay (second QA round)
+
+**Root cause:** `try_cleanup()` emits the "cleaning" ptt-status event immediately before the blocking LLM HTTP call. With fast local Ollama instances (sub-300ms), the "cleaning" and "inserting" events arrive at the overlay JS event loop in rapid succession. React 18's automatic batching may coalesce both `setPhase` calls into a single render showing only "inserting".
+
+**Fix:** Added a 50ms `std::thread::sleep` after `emit_ptt_status(handle, "cleaning", ...)` and before the `CleanupService::cleanup()` call. This gives WebView2's IPC bridge time to deliver the event and allows React to render the "Cleaning text…" phase before the HTTP call starts. 50ms is imperceptible within the 2–5s total pipeline duration.
 
 ---
 

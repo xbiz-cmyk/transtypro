@@ -4,7 +4,7 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 11 Product Polish — IMPLEMENTED + QA-fixed on `phase/11-product-polish`, PR open for review.
+Phase 11 Product Polish — IMPLEMENTED + QA-fixed (2 rounds) on `phase/11-product-polish`, PR open for review.
 Phase 10.1 PTT Feedback Overlay Window — MERGED into main.
 Phase 10 Push-to-Talk Pipeline — MERGED into main.
 Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
@@ -37,10 +37,12 @@ Phase 11 Product Polish: Visual polish, shortcut recorder, PTT speed setting, an
 - Updated: `src-tauri/src/services/privacy.rs` — minimal forced touch: `ptt_output_mode` added to test struct literal
 - QA fix: `src-tauri/src/lib.rs` — `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` made `pub(crate)`
 - QA fix: `src-tauri/src/commands/shortcut.rs` — `update_shortcut` now registers behavior-aware handler (PTT toggle/hold/open_dictation) matching lib.rs setup(); previously hardcoded open_dictation
-- QA fix: `src-tauri/src/services/ptt.rs` — `strip_whisper_timestamps()` helper strips `[HH:MM:SS --> HH:MM:SS]` markers from Whisper output before insertion; applied in both insert_raw and clean_before_insert paths; 6 new tests
-- QA fix: `src/pages/Settings.tsx` — shortcut recorder "Use this" only returns to idle on backend success; stays in captured state for error retry
-- 164 tests total (158 → 164, 6 new); all pass
-- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (164/164), npm lint (tsc --noEmit), npm build (315.83 kB), quality-check.ps1
+- QA fix: `src-tauri/src/services/ptt.rs` — `strip_whisper_timestamps()` strips `[HH:MM:SS --> HH:MM:SS]` Whisper markers; 6 tests
+- QA fix: `src/pages/Settings.tsx` — shortcut recorder "Use this" only returns to idle on backend success; stays in captured for error retry
+- QA fix (2nd round): `src-tauri/src/services/ptt.rs` — `sanitize_cleanup_output()` strips LLM boilerplate prefixes ("Here is the cleaned text:", "Cleaned text:", etc.) and surrounding quotes from cleanup output before insertion; CleanupService unchanged; 8 new tests; local to PTT pipeline only
+- QA fix (2nd round): `src-tauri/src/services/ptt.rs` — 50ms pause after "cleaning" phase emit so WebView2 renders the phase before blocking LLM call starts; prevents React batching of cleaning+inserting into single render
+- 172 tests total (152 → 172, 20 new); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (172/172), npm lint (tsc --noEmit), npm build (315.83 kB), quality-check.ps1
 - Handoff: `handoff/phase-11-product-polish.md`
 
 Phase 10.1 PTT Feedback Overlay Window: Secondary Tauri window (`ptt-overlay`) that appears while PTT is active and shows pipeline phase without stealing focus from the active app.
