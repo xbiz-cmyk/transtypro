@@ -1,8 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Sidebar from "./components/Sidebar";
-import StatusBar from "./components/StatusBar";
 import FloatingOverlay from "./components/FloatingOverlay";
 import ShortcutHandler from "./components/ShortcutHandler";
 import PttOverlay from "./components/PttOverlay";
@@ -17,36 +15,12 @@ import Settings from "./pages/Settings";
 import Privacy from "./pages/Privacy";
 import Diagnostics from "./pages/Diagnostics";
 import About from "./pages/About";
-import { getAppVersion, getStatusSummary } from "./lib/api";
-
 // Evaluated once at module load time (synchronous in Tauri v2).
 // The ptt-overlay window renders only the small feedback overlay;
 // the main window renders the full app shell unchanged.
 const IS_PTT_OVERLAY = getCurrentWindow().label === "ptt-overlay";
 
 function MainApp() {
-  const [version, setVersion] = useState("...");
-  const [privacyMode, setPrivacyMode] = useState("local-only");
-
-  useEffect(() => {
-    async function loadAppInfo() {
-      try {
-        const v = await getAppVersion();
-        setVersion(v);
-      } catch {
-        setVersion("?.?.?");
-      }
-
-      try {
-        const status = await getStatusSummary();
-        setPrivacyMode(status.privacy_mode);
-      } catch {
-        // Keep default "local-only" on error
-      }
-    }
-    loadAppInfo();
-  }, []);
-
   return (
     <BrowserRouter>
       <ShortcutHandler />
@@ -55,27 +29,21 @@ function MainApp() {
         <Sidebar />
 
         {/* Main content area — offset by sidebar width */}
-        <div className="ml-(--spacing-sidebar) flex flex-col min-h-screen">
-          {/* Status bar */}
-          <StatusBar privacyMode={privacyMode} version={version} />
-
-          {/* Page content */}
-          <main className="flex-1 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/dictation" element={<Dictation />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/modes" element={<Modes />} />
-              <Route path="/vocabulary" element={<Vocabulary />} />
-              <Route path="/models" element={<Models />} />
-              <Route path="/providers" element={<Providers />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/diagnostics" element={<Diagnostics />} />
-              <Route path="/about" element={<About />} />
-            </Routes>
-          </main>
-        </div>
+        <main className="ml-(--spacing-sidebar) min-h-screen overflow-y-auto">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/dictation" element={<Dictation />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/modes" element={<Modes />} />
+            <Route path="/vocabulary" element={<Vocabulary />} />
+            <Route path="/models" element={<Models />} />
+            <Route path="/providers" element={<Providers />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/diagnostics" element={<Diagnostics />} />
+            <Route path="/about" element={<About />} />
+          </Routes>
+        </main>
 
         {/* Floating dictation overlay */}
         <FloatingOverlay />
