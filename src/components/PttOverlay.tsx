@@ -150,7 +150,14 @@ export default function PttOverlay() {
       : message;
 
   return (
-    <div className="w-full h-screen flex items-center bg-(--color-surface-overlay) border border-(--color-border-default) rounded-2xl overflow-hidden select-none">
+    <div
+      className="w-full h-screen flex items-center rounded-2xl overflow-hidden select-none"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.24 0.02 255 / 0.97), oklch(0.20 0.01 250 / 0.97))",
+        border: "1px solid oklch(0.32 0.06 250 / 0.55)",
+      }}
+    >
       {/*
         Drag region: the entire left/centre area is a drag handle.
         Tauri v2 excludes button elements from triggering drag, so Cancel
@@ -188,7 +195,18 @@ export default function PttOverlay() {
             className="text-(--color-text-muted) hover:text-(--color-text-primary) rounded p-1 transition-colors"
             title="Dismiss"
           >
-            ✕
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         )}
       </div>

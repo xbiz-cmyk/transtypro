@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStatusSummary, ping } from "../lib/api";
 import type { StatusSummary } from "../lib/types";
-import Logo from "../components/Logo";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import {
   HistoryIcon,
@@ -38,29 +37,34 @@ export default function Home() {
   const isLocalOnly = status ? status.privacy_mode === "local-only" : true;
 
   return (
-    <div id="home-page" className="p-8 max-w-[900px]">
-      <div className="grid grid-cols-[1fr_236px] gap-8 items-start">
+    <div id="home-page" className="relative p-8 max-w-[900px] overflow-hidden">
 
-        {/* ── Left column ──────────────────────────────────────── */}
+      {/* Aurora background glow — soft radial behind the right column */}
+      <div
+        className="pointer-events-none absolute right-0 top-0 w-[480px] h-[420px]"
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 65% at 80% 25%, oklch(0.55 0.16 250 / 0.09) 0%, transparent 70%)",
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative grid grid-cols-[1fr_228px] gap-8 items-start">
+
+        {/* ── Left column ──────────────────────────────────────────── */}
         <div>
 
-          {/* ── Hero ─────────────────────────────────────────── */}
+          {/* ── Hero ─────────────────────────────────────────────── */}
           <div className="mb-10">
-            {/* Brand wordmark accent */}
-            <div className="flex items-center gap-2 mb-5">
-              <Logo size={16} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-brand-400)">
-                transtypro
-              </span>
-            </div>
-
-            <h1 className="text-[2.625rem] font-extrabold leading-[1.05] tracking-tight text-(--color-text-primary) mb-3">
+            <h1 className="text-[2.5rem] font-extrabold leading-[1.08] tracking-tight text-(--color-text-primary) mb-4">
+              Hold a key.<br />
               Speak.<br />
-              Clean. Insert.
+              Watch it appear.
             </h1>
 
-            <p className="text-sm text-(--color-text-secondary) leading-relaxed mb-7 max-w-xs">
-              Fast local dictation for every desktop app.
+            <p className="text-sm text-(--color-text-secondary) leading-relaxed mb-7 max-w-sm">
+              Fast local dictation that types into any desktop app.
+              Your audio stays on this device unless you choose otherwise.
             </p>
 
             <div className="flex items-center gap-2.5">
@@ -83,7 +87,7 @@ export default function Home() {
 
           {error && <ErrorMessage message={error} className="mb-6" />}
 
-          {/* ── Status chips ───────────────────────────────── */}
+          {/* ── Status chips ─────────────────────────────────────── */}
           <div className="flex flex-wrap gap-2 mb-8">
             <StatusChip
               value={backendOk === null ? "Checking…" : backendOk ? "Connected" : "Offline"}
@@ -111,7 +115,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* ── Quick links ────────────────────────────────── */}
+          {/* ── Quick links ──────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
             <QuickLink
               to="/history"
@@ -148,43 +152,56 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ── Right column — PTT panel ─────────────────────────── */}
-        <div className="pt-1">
-          <div className="rounded-(--radius-card) border border-(--color-border-subtle) bg-(--color-surface-raised) p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted) mb-4">
-              Push-to-talk
-            </p>
+        {/* ── Right column — mic orb ───────────────────────────────── */}
+        <div className="pt-4">
+          <div
+            className="rounded-(--radius-card) border p-5 flex flex-col items-center"
+            style={{
+              background: "oklch(0.18 0.01 250 / 0.55)",
+              borderColor: "oklch(0.28 0.03 250 / 0.5)",
+              boxShadow: "0 8px 32px oklch(0 0 0 / 0.25)",
+            }}
+          >
+            <MicOrb />
 
-            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-(--color-brand-500)/10 border border-(--color-brand-500)/20 mb-4">
-              <DictationIcon size={20} className="text-(--color-brand-400)" />
-            </div>
-
-            <p className="text-[13px] font-semibold text-(--color-text-primary) mb-1.5 leading-tight">
-              Ready to dictate
-            </p>
-
-            {status?.active_mode && (
-              <p className="text-xs text-(--color-text-muted) mb-1">
-                Mode:{" "}
-                <span className="text-(--color-text-secondary)">
-                  {capitalize(status.active_mode)}
-                </span>
+            <div className="mt-4 text-center w-full">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted) mb-3">
+                Push-to-talk
               </p>
-            )}
 
-            <p className="text-xs text-(--color-text-muted) leading-relaxed mb-5">
-              Press your shortcut anywhere to speak. Release to insert.
-            </p>
+              {status?.active_mode && (
+                <p className="text-xs text-(--color-text-muted) mb-2">
+                  Mode:{" "}
+                  <span className="text-(--color-text-secondary)">
+                    {capitalize(status.active_mode)}
+                  </span>
+                </p>
+              )}
 
-            <Link
-              to="/settings"
-              className="inline-flex items-center gap-1 text-xs text-(--color-brand-400) hover:text-(--color-brand-300) font-medium transition-colors duration-100"
-            >
-              Configure shortcut
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </Link>
+              <p className="text-[11px] text-(--color-text-muted) leading-relaxed mb-4 max-w-[160px] mx-auto">
+                Press your shortcut anywhere to speak.
+              </p>
+
+              <Link
+                to="/settings"
+                className="inline-flex items-center gap-1 text-xs text-(--color-brand-400) hover:text-(--color-brand-300) font-medium transition-colors duration-100"
+              >
+                Configure
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -193,6 +210,51 @@ export default function Home() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────
+
+function MicOrb() {
+  return (
+    <div className="relative flex flex-col items-center">
+      {/* Orb + rings */}
+      <div className="relative flex items-center justify-center w-40 h-40">
+        {/* Ambient glow */}
+        <div
+          className="absolute w-28 h-28 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, oklch(0.55 0.16 250 / 0.22) 0%, transparent 70%)",
+            filter: "blur(14px)",
+          }}
+          aria-hidden="true"
+        />
+        {/* Rings */}
+        <div className="absolute w-36 h-36 rounded-full border border-(--color-brand-500)/10" aria-hidden="true" />
+        <div className="absolute w-28 h-28 rounded-full border border-(--color-brand-500)/18" aria-hidden="true" />
+        <div className="absolute w-20 h-20 rounded-full border border-(--color-brand-400)/28" aria-hidden="true" />
+        {/* Main orb */}
+        <div
+          className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(0.65 0.14 250), oklch(0.42 0.18 265))",
+          }}
+        >
+          <DictationIcon size={22} className="text-white" />
+        </div>
+      </div>
+
+      {/* Decorative waveform bars */}
+      <div className="flex items-end gap-[3px] mt-1" aria-hidden="true">
+        {[10, 16, 22, 16, 10].map((h, i) => (
+          <div
+            key={i}
+            className="w-[5px] rounded-full bg-(--color-brand-400)/35"
+            style={{ height: h }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function StatusChip({
   value,

@@ -92,9 +92,17 @@ export default function Sidebar() {
       id="sidebar"
       className="fixed top-0 left-0 h-screen w-(--spacing-sidebar) bg-(--color-surface-sidebar) border-r border-(--color-border-subtle) flex flex-col z-10"
     >
-      {/* Brand header */}
+      {/* Brand header — gradient mark + wordmark */}
       <div className="px-4 py-[14px] border-b border-(--color-border-subtle) flex items-center gap-3">
-        <Logo size={26} />
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(0.65 0.14 250), oklch(0.42 0.18 265))",
+          }}
+        >
+          <Logo size={17} color="white" />
+        </div>
         <div>
           <h1 className="text-[13px] font-bold tracking-tight text-(--color-text-primary) leading-none">
             transtypro
