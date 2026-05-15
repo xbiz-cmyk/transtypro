@@ -6,6 +6,7 @@ import Textarea from "../components/ui/Textarea";
 import Select from "../components/ui/Select";
 import ErrorMessage from "../components/ui/ErrorMessage";
 import {
+  cancelPtt,
   cancelRecording,
   cleanupText,
   createHistoryEntry,
@@ -57,6 +58,9 @@ export default function Dictation() {
   // Insertion state
   const [isInserting, setIsInserting] = useState(false);
   const [inserted, setInserted] = useState(false);
+
+  // PTT conflict recovery state
+  const [isCancellingPtt, setIsCancellingPtt] = useState(false);
 
   const loadCleanupProviders = useCallback(() => {
     listEnabledCleanupProviders()
@@ -111,6 +115,19 @@ export default function Dictation() {
     // intentional: only run on unmount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleCancelPtt = async () => {
+    setIsCancellingPtt(true);
+    try {
+      await cancelPtt();
+      await cancelRecording().catch(() => {});
+      setError(null);
+    } catch (err: unknown) {
+      setError(`Cancel failed: ${String(err)}`);
+    } finally {
+      setIsCancellingPtt(false);
+    }
+  };
 
   const handleRecord = async () => {
     setError(null);
@@ -292,6 +309,20 @@ export default function Dictation() {
       {error && (
         <div className="mb-5">
           <ErrorMessage message={error} />
+          {error.toLowerCase().includes("already recording") && (
+            <div className="mt-3 flex items-center gap-3">
+              <p className="text-sm text-(--color-text-secondary)">
+                A recording is already active.
+              </p>
+              <Button
+                variant="ghost"
+                disabled={isCancellingPtt}
+                onClick={handleCancelPtt}
+              >
+                {isCancellingPtt ? "Cancelling…" : "Cancel active recording"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

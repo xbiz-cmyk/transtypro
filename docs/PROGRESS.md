@@ -4,7 +4,8 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 10.1 PTT Feedback Overlay Window — IMPLEMENTED on `phase/10.1-ptt-overlay-window`, PR open for review.
+Phase 11 Product Polish — IMPLEMENTED + QA-fixed (3 rounds) on `phase/11-product-polish`, PR open for review.
+Phase 10.1 PTT Feedback Overlay Window — MERGED into main.
 Phase 10 Push-to-Talk Pipeline — MERGED into main.
 Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.
 Phase 8 Privacy/Diagnostics/Retention — MERGED into main.
@@ -19,6 +20,30 @@ Phase 2 Backend Contracts — MERGED into main.
 Phase 1 UI Shell — MERGED into main.
 
 ## Last completed work
+
+Phase 11 Product Polish: Visual polish, shortcut recorder, PTT speed setting, and overlay timing feedback.
+- New: `src/components/Logo.tsx` — inline SVG logo: speech waveform bars + text cursor, `size` prop
+- New: `src/components/icons.tsx` — 11 named SVG icon exports (HomeIcon…AboutIcon), consistent stroke style, no external packages
+- Updated: `src/components/Sidebar.tsx` — emoji replaced with SVG icons via `<NavIcon>` lookup; Logo added to header; stale footer removed
+- Updated: `src/pages/Home.tsx` — Logo added to heading; "Start dictating →" CTA button; singular/plural history count
+- Updated: `src/pages/Settings.tsx` — shortcut recorder UI (Record/Use this/Cancel/Reset); ptt_output_mode selector (Best quality / Fast)
+- Updated: `src/components/PttOverlay.tsx` — elapsed recording timer ("Listening… Xs"); "Live transcript preview" sub-label removed
+- Updated: `src/lib/types.ts` — `ptt_output_mode: string` added to AppSettings interface
+- Updated: `src-tauri/src/models/mod.rs` — `ptt_output_mode: String` added to AppSettings struct
+- Updated: `src-tauri/src/db/migrations.rs` — migration 006 (`ptt_output_mode` column, default `clean_before_insert`) + 3 tests
+- Updated: `src-tauri/src/db/repositories/settings_repo.rs` — SELECT/upsert/default for ptt_output_mode + 3 tests
+- Updated: `src-tauri/src/services/ptt.rs` — `read_ptt_output_mode()` helper; `run_pipeline()` branches: `insert_raw` skips cleanup and emits no cleaning phase
+- Updated: `src-tauri/src/services/diagnostics.rs` — expected migration version bumped 5 → 6 (1 line)
+- Updated: `src-tauri/src/services/privacy.rs` — minimal forced touch: `ptt_output_mode` added to test struct literal
+- QA fix: `src-tauri/src/lib.rs` — `read_shortcut_behavior`, `ptt_start`, `ptt_stop_and_run`, `ptt_toggle` made `pub(crate)`
+- QA fix: `src-tauri/src/commands/shortcut.rs` — `update_shortcut` now registers behavior-aware handler (PTT toggle/hold/open_dictation) matching lib.rs setup(); previously hardcoded open_dictation
+- QA fix: `src-tauri/src/services/ptt.rs` — `strip_whisper_timestamps()` strips `[HH:MM:SS --> HH:MM:SS]` Whisper markers; 6 tests
+- QA fix: `src/pages/Settings.tsx` — shortcut recorder "Use this" only returns to idle on backend success; stays in captured for error retry
+- QA fix (2nd round): `src-tauri/src/services/ptt.rs` — `sanitize_cleanup_output()` strips LLM boilerplate prefixes ("Here is the cleaned text:", "Cleaned text:", etc.) and surrounding quotes from cleanup output before insertion; CleanupService unchanged; 8 new tests; local to PTT pipeline only
+- QA fix (2nd round): `src-tauri/src/services/ptt.rs` — 50ms pause after "cleaning" phase emit so WebView2 renders the phase before blocking LLM call starts; prevents React batching of cleaning+inserting into single render
+- 172 tests total (152 → 172, 20 new); all pass
+- All checks pass: cargo fmt, cargo clippy -D warnings, cargo test (172/172), npm lint (tsc --noEmit), npm build (315.83 kB), quality-check.ps1
+- Handoff: `handoff/phase-11-product-polish.md`
 
 Phase 10.1 PTT Feedback Overlay Window: Secondary Tauri window (`ptt-overlay`) that appears while PTT is active and shows pipeline phase without stealing focus from the active app.
 - New: `src/components/PttOverlay.tsx` — standalone overlay component: `ptt-status` listener, animated waveform bars (CSS-only, no audio data), phase labels (Listening… / Transcribing… / Cleaning… / Inserting… / Done. / error), Cancel button (recording/transcribing/cleaning), Dismiss button (error), auto-hide on done/idle/cancelled, default state `phase="recording"` for first-event safety
@@ -203,7 +228,7 @@ Phase 0: Project skeleton created and merged into `main`.
 
 ## Current orchestrator status
 
-- Phase 10.1 PTT Overlay Window PR open against `main` — awaiting orchestrator review and merge
+- Phase 11 Product Polish PR open against `main` — awaiting orchestrator review and merge
 
 ## Current known limitations
 
@@ -219,10 +244,13 @@ Phase 0: Project skeleton created and merged into `main`.
 - Language selector in Settings is cosmetic local state only.
 - Diagnostics export not implemented.
 - No active app context capture (window title/process name) before insertion.
+- Shortcut recorder does not support Fn-only shortcuts (hardware-level).
+- Modifier-only shortcuts produce a warning but pass to backend for final validation.
+- Elapsed timer shows whole seconds only (sub-second not needed for this UX).
 
 ## Next recommended task
 
-1. Orchestrator: review and merge Phase 10.1 PR (`phase/10.1-ptt-overlay-window`)
-2. Phase 11: Packaging (Tauri bundler, installer, update manifest)
+1. Orchestrator: review and merge Phase 11 PR (`phase/11-product-polish`)
+2. Phase 12: Packaging (Tauri bundler, installer, update manifest)
 3. Optional: wire `get_recording_status` RMS level to overlay bar heights for real audio feedback
 4. Optional: active app context capture (window title + PID) to show in overlay during PTT

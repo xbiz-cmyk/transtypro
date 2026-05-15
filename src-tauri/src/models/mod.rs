@@ -36,6 +36,8 @@ pub struct AppSettings {
     /// How the global shortcut triggers dictation.
     /// "open_dictation" | "push_to_talk_hold" | "push_to_talk_toggle"
     pub shortcut_behavior: String,
+    /// PTT output mode: "clean_before_insert" | "insert_raw"
+    pub ptt_output_mode: String,
 }
 
 /// A named dictation mode (Smart, Raw, Clean, Email, etc.).

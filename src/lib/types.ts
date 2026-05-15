@@ -54,6 +54,8 @@ export interface AppSettings {
   shortcut: string;
   /** Shortcut behavior: "open_dictation" | "push_to_talk_toggle" | "push_to_talk_hold" */
   shortcut_behavior: string;
+  /** PTT output mode: "clean_before_insert" | "insert_raw" */
+  ptt_output_mode: string;
 }
 
 // ---------------------------------------------------------------------------

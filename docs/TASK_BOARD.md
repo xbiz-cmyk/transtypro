@@ -2,7 +2,7 @@
 
 ## Backlog
 
-- [ ] Phase 11 packaging
+- [ ] Phase 12 packaging (Tauri bundler, installer, update manifest)
 - [ ] Optional: active app context capture (window title + PID) before insertion
 
 ## Planning
@@ -15,7 +15,7 @@ None.
 
 ## Review
 
-- [ ] Phase 10.1 PTT overlay window — branch `phase/10.1-ptt-overlay-window`, PR open, awaiting orchestrator review
+- [ ] Phase 11 product polish — branch `phase/11-product-polish`, PR open, awaiting orchestrator review
 
 ## Done
 
@@ -32,6 +32,7 @@ None.
 - [x] Phase 8 privacy/diagnostics/retention — merged into main
 - [x] Phase 9 text insertion + shortcut rebinding — merged into main
 - [x] Phase 10 PTT pipeline — merged into main
+- [x] Phase 10.1 PTT overlay window — merged into main
 
 ## Blockers
 

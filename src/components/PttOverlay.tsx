@@ -47,7 +47,10 @@ export default function PttOverlay() {
   // ptt-status event arrives before the listener is registered.
   const [phase, setPhase] = useState("recording");
   const [message, setMessage] = useState("Listening…");
+  const [elapsedSec, setElapsedSec] = useState(0);
+
   const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function clearAutoHideTimer() {
     if (autoHideTimerRef.current !== null) {
@@ -56,8 +59,17 @@ export default function PttOverlay() {
     }
   }
 
+  function clearElapsedTimer() {
+    if (elapsedIntervalRef.current !== null) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+    setElapsedSec(0);
+  }
+
   async function hideOverlay() {
     clearAutoHideTimer();
+    clearElapsedTimer();
     try {
       await getCurrentWindow().hide();
     } catch {
@@ -75,6 +87,18 @@ export default function PttOverlay() {
       setPhase(p);
       setMessage(m);
       clearAutoHideTimer();
+
+      if (p === "recording") {
+        // Start elapsed timer for the recording phase.
+        clearElapsedTimer();
+        elapsedIntervalRef.current = setInterval(
+          () => setElapsedSec((s) => s + 1),
+          1000
+        );
+      } else {
+        // Stop elapsed timer for all non-recording phases.
+        clearElapsedTimer();
+      }
 
       if (p === "done") {
         autoHideTimerRef.current = setTimeout(() => {
@@ -94,6 +118,7 @@ export default function PttOverlay() {
     return () => {
       unlisten?.();
       clearAutoHideTimer();
+      clearElapsedTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -119,10 +144,20 @@ export default function PttOverlay() {
     }
   }
 
-  const displayLabel = phase === "recording" ? "Listening…" : message;
+  const displayLabel =
+    phase === "recording"
+      ? `Listening… ${elapsedSec}s`
+      : message;
 
   return (
-    <div className="w-full h-screen flex items-center bg-(--color-surface-overlay) border border-(--color-border-default) rounded-2xl overflow-hidden select-none">
+    <div
+      className="w-full h-screen flex items-center rounded-2xl overflow-hidden select-none"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.24 0.02 255 / 0.97), oklch(0.20 0.01 250 / 0.97))",
+        border: "1px solid oklch(0.32 0.06 250 / 0.55)",
+      }}
+    >
       {/*
         Drag region: the entire left/centre area is a drag handle.
         Tauri v2 excludes button elements from triggering drag, so Cancel
@@ -141,11 +176,6 @@ export default function PttOverlay() {
           <p className="text-sm font-semibold text-(--color-text-primary) truncate">
             {displayLabel}
           </p>
-          {phase === "recording" && (
-            <p className="text-[10px] text-(--color-text-muted) truncate mt-0.5">
-              Live transcript preview coming later
-            </p>
-          )}
         </div>
       </div>
 
@@ -165,7 +195,18 @@ export default function PttOverlay() {
             className="text-(--color-text-muted) hover:text-(--color-text-primary) rounded p-1 transition-colors"
             title="Dismiss"
           >
-            ✕
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         )}
       </div>

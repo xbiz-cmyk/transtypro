@@ -25,7 +25,7 @@ interface CardHeaderProps {
 export function CardHeader({ children, className = "" }: CardHeaderProps) {
   return (
     <h2
-      className={`text-sm font-medium text-(--color-text-secondary) uppercase tracking-wider mb-4 ${className}`}
+      className={`text-[10px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted) mb-3 ${className}`}
     >
       {children}
     </h2>

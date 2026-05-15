@@ -247,15 +247,24 @@ impl PttPipelineService {
         };
 
         let raw_text = transcription_result.raw_text.clone();
+        // Strip whisper.cpp timestamp markers ([HH:MM:SS.mmm --> HH:MM:SS.mmm]) before
+        // insertion. raw_text preserved in history for traceability; all user-visible text
+        // uses the stripped version.
+        let stripped_text = strip_whisper_timestamps(&raw_text);
 
         if self.is_cancelled(ptt, handle) {
             return;
         }
 
         // ── Step 3: Optional cleanup (non-fatal) ────────────────────────────
-        let final_text = self
-            .try_cleanup(&raw_text, ptt, handle)
-            .unwrap_or_else(|| raw_text.clone());
+        // In insert_raw mode, skip cleanup entirely for lower latency.
+        let final_text = if self.read_ptt_output_mode() == "insert_raw" {
+            stripped_text.clone()
+        } else {
+            self.try_cleanup(&stripped_text, ptt, handle)
+                .map(|t| sanitize_cleanup_output(&t))
+                .unwrap_or_else(|| stripped_text.clone())
+        };
 
         if self.is_cancelled(ptt, handle) {
             return;
@@ -365,11 +374,26 @@ impl PttPipelineService {
 
         ptt.set_phase(PttPhase::Cleaning);
         emit_ptt_status(handle, "cleaning", "Cleaning text…");
+        // Give WebView2's IPC bridge time to deliver and render the "cleaning"
+        // event before the blocking HTTP call to the LLM starts. Without this,
+        // fast local-LLM responses can cause the cleaning phase to be invisible
+        // in the overlay (React batches the cleaning + inserting state updates
+        // into a single render showing only "inserting").
+        std::thread::sleep(std::time::Duration::from_millis(50));
 
         match CleanupService::new(self.db.clone()).cleanup(raw_text, &provider_id) {
             Ok(r) => Some(r.cleaned_text),
             Err(_) => None, // non-fatal
         }
+    }
+
+    fn read_ptt_output_mode(&self) -> String {
+        self.db
+            .lock()
+            .ok()
+            .and_then(|conn| SettingsRepository::new(&conn).get().ok())
+            .map(|s| s.ptt_output_mode)
+            .unwrap_or_else(|| "clean_before_insert".to_string())
     }
 
     fn find_cleanup_provider_id(&self) -> Result<Option<String>, AppError> {
@@ -402,6 +426,111 @@ impl PttPipelineService {
             .lock()
             .map_err(|_| AppError::StorageError("db lock poisoned".into()))?;
         Ok(SettingsRepository::new(&conn).get()?.active_mode)
+    }
+}
+
+// ────────────────────────── Timestamp stripping ──────────────────────────────
+
+/// Strip whisper.cpp timestamp markers from raw transcription output.
+///
+/// Whisper.cpp emits lines in the form:
+///   `[00:00:00.000 --> 00:00:07.940]  Hello, this is the text.`
+///
+/// This function removes the `[timestamp --> timestamp]` prefix from each such
+/// line and joins the remaining text fragments with a space. Lines that do not
+/// contain `-->` (including `[BLANK_AUDIO]` noise markers) are either kept as-is
+/// (plain text) or skipped (bracket-only markers). Empty lines are always skipped.
+///
+/// If the input has no timestamp markers, it is returned unchanged (trimmed).
+pub(crate) fn strip_whisper_timestamps(text: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.contains("-->") {
+            // Timestamp line: extract the text that follows the closing `]`.
+            if let Some(bracket_end) = trimmed.find(']') {
+                let rest = trimmed[bracket_end + 1..].trim();
+                if !rest.is_empty() {
+                    parts.push(rest);
+                }
+            }
+        } else if trimmed.starts_with('[') {
+            // Non-timestamp bracket marker (e.g. [BLANK_AUDIO], [MUSIC]) — skip.
+        } else if !trimmed.is_empty() {
+            parts.push(trimmed);
+        }
+    }
+    parts.join(" ")
+}
+
+// ─────────────────────── Cleanup output sanitization ─────────────────────────
+
+/// Strip LLM boilerplate from cleanup output before PTT insertion.
+///
+/// LLM providers (Ollama, OpenAI-compatible) frequently wrap the cleaned text
+/// in explanatory prefixes or surrounding quotes. This function removes those
+/// so only the intended text is inserted into the user's active application.
+///
+/// Handled cases (case-insensitive prefix match):
+/// - "Here is the cleaned text:\n\"actual text\""  → "actual text"
+/// - "Cleaned text: actual text"                    → "actual text"
+/// - "\"actual text\""                              → actual text
+/// - "Actual text."                                 → "Actual text."  (unchanged)
+///
+/// Falls back to the trimmed original if sanitization produces an empty string.
+pub(crate) fn sanitize_cleanup_output(text: &str) -> String {
+    const BOILERPLATE: &[&str] = &[
+        "here is the cleaned text:",
+        "cleaned text:",
+        "the cleaned text is:",
+        "here is the cleaned transcript:",
+        "cleaned transcript:",
+    ];
+
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return text.to_string();
+    }
+
+    // Strip a leading boilerplate prefix (case-insensitive).
+    // Handles both single-line ("Cleaned text: actual") and multi-line
+    // ("Cleaned text:\n\n\"actual\"") formats because .trim() collapses
+    // the newlines and surrounding whitespace after slicing.
+    let lower = trimmed.to_lowercase();
+    let candidate = BOILERPLATE
+        .iter()
+        .find_map(|bp| {
+            if lower.starts_with(bp) {
+                let rest = trimmed[bp.len()..].trim();
+                if rest.is_empty() {
+                    None // boilerplate-only with nothing after — fall through
+                } else {
+                    Some(rest)
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or(trimmed);
+
+    // Strip surrounding single or double quotes wrapping the entire string.
+    let bytes = candidate.as_bytes();
+    let len = bytes.len();
+    if len >= 2 {
+        let first = bytes[0];
+        let last = bytes[len - 1];
+        if (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') {
+            let inner = candidate[1..len - 1].trim();
+            if !inner.is_empty() {
+                return inner.to_string();
+            }
+        }
+    }
+
+    if candidate.is_empty() {
+        trimmed.to_string()
+    } else {
+        candidate.to_string()
     }
 }
 
@@ -537,5 +666,101 @@ mod tests {
         };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"phase\":\"error\""));
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_single_line() {
+        let input = "[00:00:00.000 --> 00:00:07.940]  Hello, this is a test.";
+        assert_eq!(strip_whisper_timestamps(input), "Hello, this is a test.");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_multiple_lines() {
+        let input = "[00:00:00.000 --> 00:00:05.000]  First sentence.\n\
+                     [00:00:05.000 --> 00:00:10.000]  Second sentence.";
+        assert_eq!(
+            strip_whisper_timestamps(input),
+            "First sentence. Second sentence."
+        );
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_plain_text_unchanged() {
+        let input = "Hello, world!";
+        assert_eq!(strip_whisper_timestamps(input), "Hello, world!");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_blank_audio_skipped() {
+        let input = "[BLANK_AUDIO]";
+        assert_eq!(strip_whisper_timestamps(input), "");
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_mixed_blank_and_speech() {
+        let input = "[00:00:00.000 --> 00:00:02.000]  [BLANK_AUDIO]\n\
+                     [00:00:02.000 --> 00:00:06.000]  Actual words here.";
+        assert_eq!(
+            strip_whisper_timestamps(input),
+            "[BLANK_AUDIO] Actual words here."
+        );
+    }
+
+    #[test]
+    fn test_strip_whisper_timestamps_empty_input() {
+        assert_eq!(strip_whisper_timestamps(""), "");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_boilerplate_multiline() {
+        // Real Ollama response: boilerplate line, blank line, quoted text.
+        let input = "Here is the cleaned text:\n\n\"Okay, let's test this.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_boilerplate_inline() {
+        let input = "Cleaned text: Okay, let's test this.";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_surrounding_double_quotes() {
+        let input = "\"Okay, let's test this.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let's test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_removes_surrounding_single_quotes() {
+        let input = "'Okay, let\\'s test this.'";
+        assert_eq!(sanitize_cleanup_output(input), "Okay, let\\'s test this.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_preserves_normal_text() {
+        let input = "Okay, let's test the best quality mode.";
+        assert_eq!(
+            sanitize_cleanup_output(input),
+            "Okay, let's test the best quality mode."
+        );
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_fallback_when_boilerplate_only() {
+        // Boilerplate with nothing after — should fall back to trimmed original.
+        let input = "Here is the cleaned text:";
+        assert_eq!(sanitize_cleanup_output(input), "Here is the cleaned text:");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_case_insensitive_prefix() {
+        let input = "CLEANED TEXT: Hello world.";
+        assert_eq!(sanitize_cleanup_output(input), "Hello world.");
+    }
+
+    #[test]
+    fn test_sanitize_cleanup_output_transcript_variant() {
+        let input = "Here is the cleaned transcript:\n\"Meeting notes follow.\"";
+        assert_eq!(sanitize_cleanup_output(input), "Meeting notes follow.");
     }
 }

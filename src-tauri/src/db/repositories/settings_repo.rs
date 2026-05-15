@@ -17,7 +17,7 @@ impl<'a> SettingsRepository<'a> {
             "SELECT active_mode, local_only_mode, theme, retention_days,
                     audio_history_enabled, clipboard_restore_enabled,
                     whisper_binary_path, whisper_model_path, shortcut,
-                    shortcut_behavior
+                    shortcut_behavior, ptt_output_mode
              FROM settings WHERE id = 1",
             [],
             |row| {
@@ -32,6 +32,7 @@ impl<'a> SettingsRepository<'a> {
                     whisper_model_path: row.get(7)?,
                     shortcut: row.get(8)?,
                     shortcut_behavior: row.get(9)?,
+                    ptt_output_mode: row.get(10)?,
                 })
             },
         );
@@ -49,6 +50,7 @@ impl<'a> SettingsRepository<'a> {
                 whisper_model_path: None,
                 shortcut: "CommandOrControl+Shift+Space".to_string(),
                 shortcut_behavior: "open_dictation".to_string(),
+                ptt_output_mode: "clean_before_insert".to_string(),
             }),
             Err(e) => Err(AppError::StorageError(e.to_string())),
         }
@@ -62,8 +64,8 @@ impl<'a> SettingsRepository<'a> {
                     id, active_mode, local_only_mode, theme,
                     retention_days, audio_history_enabled, clipboard_restore_enabled,
                     whisper_binary_path, whisper_model_path, shortcut,
-                    shortcut_behavior
-                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                    shortcut_behavior, ptt_output_mode
+                 ) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
                  ON CONFLICT(id) DO UPDATE SET
                     active_mode               = excluded.active_mode,
                     local_only_mode           = excluded.local_only_mode,
@@ -74,7 +76,8 @@ impl<'a> SettingsRepository<'a> {
                     whisper_binary_path       = excluded.whisper_binary_path,
                     whisper_model_path        = excluded.whisper_model_path,
                     shortcut                  = excluded.shortcut,
-                    shortcut_behavior         = excluded.shortcut_behavior",
+                    shortcut_behavior         = excluded.shortcut_behavior,
+                    ptt_output_mode           = excluded.ptt_output_mode",
                 rusqlite::params![
                     settings.active_mode,
                     settings.local_only_mode as i64,
@@ -86,6 +89,7 @@ impl<'a> SettingsRepository<'a> {
                     settings.whisper_model_path,
                     settings.shortcut,
                     settings.shortcut_behavior,
+                    settings.ptt_output_mode,
                 ],
             )
             .map_err(|e| AppError::StorageError(e.to_string()))?;
@@ -243,6 +247,48 @@ mod tests {
         let s2 = repo.get().unwrap();
         assert_eq!(s2.shortcut, "CommandOrControl+Shift+D");
         assert_eq!(s2.shortcut_behavior, "push_to_talk_toggle");
+    }
+
+    #[test]
+    fn test_settings_repo_ptt_output_mode_default() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let s = repo.get().unwrap();
+        assert_eq!(
+            s.ptt_output_mode, "clean_before_insert",
+            "default ptt_output_mode must be clean_before_insert"
+        );
+    }
+
+    #[test]
+    fn test_settings_repo_ptt_output_mode_round_trip() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.ptt_output_mode = "insert_raw".to_string();
+        repo.upsert(&s).unwrap();
+        let s2 = repo.get().unwrap();
+        assert_eq!(s2.ptt_output_mode, "insert_raw");
+    }
+
+    #[test]
+    fn test_settings_repo_ptt_output_mode_preserves_other_fields() {
+        let conn = setup();
+        let repo = SettingsRepository::new(&conn);
+        let mut s = repo.get().unwrap();
+        s.whisper_binary_path = Some("/usr/bin/whisper".to_string());
+        s.shortcut = "CommandOrControl+Shift+D".to_string();
+        s.ptt_output_mode = "insert_raw".to_string();
+        repo.upsert(&s).unwrap();
+        // Now update only theme — other fields must survive.
+        let mut s2 = repo.get().unwrap();
+        s2.theme = "light".to_string();
+        repo.upsert(&s2).unwrap();
+        let s3 = repo.get().unwrap();
+        assert_eq!(s3.whisper_binary_path.as_deref(), Some("/usr/bin/whisper"));
+        assert_eq!(s3.shortcut, "CommandOrControl+Shift+D");
+        assert_eq!(s3.ptt_output_mode, "insert_raw");
+        assert_eq!(s3.theme, "light");
     }
 
     #[test]

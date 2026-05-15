@@ -103,6 +103,14 @@ const MIGRATION_004: &str =
 const MIGRATION_005: &str =
     "ALTER TABLE settings ADD COLUMN shortcut_behavior TEXT NOT NULL DEFAULT 'open_dictation'";
 
+/// Migration 006 — PTT output mode setting.
+///
+/// Controls whether the PTT pipeline runs AI cleanup before insertion.
+/// "clean_before_insert" = existing behavior (attempt cleanup if a provider is configured).
+/// "insert_raw" = skip cleanup entirely, insert raw transcript immediately for lower latency.
+const MIGRATION_006: &str =
+    "ALTER TABLE settings ADD COLUMN ptt_output_mode TEXT NOT NULL DEFAULT 'clean_before_insert'";
+
 /// Ordered migration list: (version, sql).
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, MIGRATION_001),
@@ -110,6 +118,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (3, MIGRATION_003),
     (4, MIGRATION_004),
     (5, MIGRATION_005),
+    (6, MIGRATION_006),
 ];
 
 /// Run all pending migrations against the given connection.
@@ -265,5 +274,37 @@ mod tests {
         run_migrations(&conn).unwrap();
         conn.execute_batch("SELECT shortcut_behavior FROM settings LIMIT 1")
             .expect("re-running migrations must not corrupt shortcut_behavior column");
+    }
+
+    #[test]
+    fn test_migration_006_adds_ptt_output_mode_column() {
+        let conn = migrated();
+        conn.execute_batch("SELECT ptt_output_mode FROM settings LIMIT 1")
+            .expect("migration 006 must have added the ptt_output_mode column");
+    }
+
+    #[test]
+    fn test_migration_006_default_value() {
+        let conn = migrated();
+        let mode: String = conn
+            .query_row(
+                "SELECT ptt_output_mode FROM settings WHERE id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .expect("settings row must exist after migrations");
+        assert_eq!(
+            mode, "clean_before_insert",
+            "default ptt_output_mode must be clean_before_insert"
+        );
+    }
+
+    #[test]
+    fn test_migration_006_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        conn.execute_batch("SELECT ptt_output_mode FROM settings LIMIT 1")
+            .expect("re-running migrations must not corrupt ptt_output_mode column");
     }
 }

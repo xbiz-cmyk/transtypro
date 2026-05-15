@@ -12,7 +12,7 @@ export default function About() {
           Speak instead of type.
         </p>
         <p className="text-sm text-(--color-text-muted)">
-          Version 0.1.0-dev
+          v0.11 preview
         </p>
       </div>
 
