@@ -4,7 +4,7 @@ Use this file to keep long-running agent work stable across sessions.
 
 ## Current phase
 
-Phase 11 Product Polish — IMPLEMENTED + QA-fixed (2 rounds) on `phase/11-product-polish`, PR open for review.
+Phase 11 Product Polish — IMPLEMENTED + QA-fixed (3 rounds) on `phase/11-product-polish`, PR open for review.
 Phase 10.1 PTT Feedback Overlay Window — MERGED into main.
 Phase 10 Push-to-Talk Pipeline — MERGED into main.
 Phase 9 Text Insertion and Shortcut Rebinding — MERGED into main.

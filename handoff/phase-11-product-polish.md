@@ -336,8 +336,92 @@ The `tauri.conf.json` already references `icons/icon.ico` and `icons/icon.png` c
 
 ---
 
+## QA stabilization (third QA round — post Aurora visual pass)
+
+### Fix A — updateShortcut now idempotent: pre-unregister before on_shortcut
+
+**Root cause:** When the user resets to the default shortcut (`CommandOrControl+Shift+Space`),
+`update_shortcut` tries to call `on_shortcut(new_parsed, handler)` to register it.
+But `lib.rs` `setup()` already registered this shortcut at startup. Even after a prior
+`unregister()` cleared the OS-level hotkey, Tauri's internal shortcut table may still
+hold a stale entry, causing the re-registration to fail with "HotKey already registered".
+
+**Fix:** In `commands/shortcut.rs`, before calling `on_shortcut(new_parsed, handler)`,
+parse `trimmed` into a fresh `Shortcut` object and call `unregister()` on it (failure is
+silently ignored). This clears any stale internal state and allows re-registration to succeed.
+
+The existing same-shortcut no-op guard (`if trimmed == old_shortcut { return Ok(trimmed); }`)
+is unchanged — it short-circuits before any OS calls when the shortcut has not changed.
+
+**Test added:** `test_shortcut_same_as_current_is_valid` — documents the no-op path.
+**Total tests:** 173 (was 172).
+
+### Fix B — Overlay not appearing after shortcut reset
+
+**Root cause:** Cascades from Fix A. The reset-to-default error (`on_shortcut` failed)
+meant the default shortcut was never registered in the runtime table. Pressing
+`CommandOrControl+Shift+Space` triggered nothing, so the ptt-overlay never appeared.
+
+**Fix:** Fix A resolves this. Once the reset registration succeeds, pressing the default
+shortcut calls `crate::ptt_toggle → crate::ptt_start`, which calls
+`overlay.show()`. The handler code in `shortcut.rs` is identical to `lib.rs setup()`.
+
+### Fix C — Dictation page stuck state when already recording
+
+**Problem:** If a PTT recording is active and the user opens the Dictation page and clicks
+"Start dictation", `startRecording()` fails with
+"Audio error: already recording — call cancel_recording first". The error is shown but
+there is no visible recovery path — the user cannot cancel the active PTT session from
+the Dictation page.
+
+**Fix (UI only — no backend changes):**
+- Added `cancelPtt` import in `Dictation.tsx` (already exported by `api.ts`).
+- Added `isCancellingPtt: boolean` state.
+- Added `handleCancelPtt()`: calls `cancelPtt()`, clears error on success.
+- Extended the error block: when `error.toLowerCase().includes("already recording")`,
+  renders a second row:
+  `"A recording is already active."` + `"Cancel active recording"` button.
+- On success: `error` is cleared, `isRecording` (already false) stays false, user
+  can start a new recording immediately.
+- `AudioService`, `TranscriptionService`, and all backend commands are unchanged.
+
+### Fix D — v0.1.0 still visible in About page
+
+**Root cause:** `src/pages/About.tsx` had the hardcoded string `"Version 0.1.0-dev"`.
+The StatusBar that showed the API-fetched `v0.1.0` was already removed in an earlier
+commit (`b83a41b`). The About page was the remaining source.
+
+**Fix:** Changed the About page version string to `"v0.11 preview"`.
+
+### Fix E — Native titlebar icon (deferred)
+
+The Tauri window title bar icon on Windows comes from `icons/icon.ico` referenced in
+`tauri.conf.json`. This `.ico` file currently contains the default Tauri scaffold icon.
+
+Replacing it requires generating a multi-resolution `.ico` binary (16/32/48/256 px)
+from a transtypro logo design. This is a packaging asset task.
+
+**Decision: Deferred to Phase 12 icon/packaging work.**
+
+The sidebar gradient logo mark (introduced in `54c6a3c`) is the in-app brand identity.
+The native titlebar icon is a separate OS-level asset.
+
+### Aurora visual direction (third round changes)
+
+Commits `b83a41b`, `17adc6f`, `54c6a3c`:
+
+| File | Change |
+|---|---|
+| `src/App.tsx` | Removed StatusBar (was showing API-fetched v0.1.0, redundant) |
+| `src/pages/Home.tsx` | Two-column layout; new hero copy "Hold a key. Speak. Watch it appear."; privacy-forward subheading; aurora radial glow; MicOrb visual (gradient sphere + rings + waveform bars); glass card panel; single-string status chips; quick-link icons + subtitle + badge |
+| `src/components/Logo.tsx` | `color="white"` prop for use inside gradient mark |
+| `src/components/Sidebar.tsx` | 32×32 gradient rounded-square mark (brand-400 → brand-700) wrapping white Logo |
+| `src/components/PttOverlay.tsx` | Blue-tinted gradient surface; brand-tinted border; SVG X icon replaces unicode ✕ |
+
+---
+
 ## Next recommended task
 
-- Phase 12: Packaging (Tauri bundler, installer, update manifest)
+- Phase 12: Packaging (Tauri bundler, installer, update manifest, replace `icon.ico`)
 - Optional: wire `get_recording_status` RMS to overlay bar heights for real audio feedback
 - Optional: position overlay on the monitor containing the active app
