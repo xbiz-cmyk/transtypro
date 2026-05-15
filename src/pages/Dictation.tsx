@@ -120,6 +120,7 @@ export default function Dictation() {
     setIsCancellingPtt(true);
     try {
       await cancelPtt();
+      await cancelRecording().catch(() => {});
       setError(null);
     } catch (err: unknown) {
       setError(`Cancel failed: ${String(err)}`);

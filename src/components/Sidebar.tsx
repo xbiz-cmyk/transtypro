@@ -131,10 +131,6 @@ export default function Sidebar() {
         </ul>
       </div>
 
-      {/* Version footer */}
-      <div className="px-4 py-2.5 border-t border-(--color-border-subtle)">
-        <p className="text-[10px] text-(--color-text-muted) tabular-nums">v0.11 preview</p>
-      </div>
     </aside>
   );
 }

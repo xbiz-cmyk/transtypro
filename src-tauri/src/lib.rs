@@ -196,6 +196,13 @@ pub fn run() {
                 }
             }
 
+            // Clear the native titlebar icon so the top-left corner is blank.
+            // A 1×1 transparent RGBA image replaces the default app icon in the
+            // window chrome without requiring any icon binary files.
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.set_icon(tauri::image::Image::new_owned(vec![0u8; 4], 1, 1));
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
